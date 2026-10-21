@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "event_config": {
+      "title": "Event Configuration",
+      "description": "Configuration and state of the school lucky wheel event",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 256 },
+        "occasion": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["ACTIVE", "PAUSED", "ENDED"] },
+        "total_budget": { "type": "number" },
+        "used_budget": { "type": "number" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["name", "occasion", "status", "total_budget", "used_budget"]
+    },
+    "prize_tier": {
+      "title": "Prize Tier",
+      "description": "Wheel slice prize configuration and remaining inventory",
+      "type": "object",
+      "properties": {
+        "slot_index": { "type": "number" },
+        "name": { "type": "string", "maxLength": 128 },
+        "is_cash": { "type": "number" },
+        "amount": { "type": "number" },
+        "total_quantity": { "type": "number" },
+        "remaining_quantity": { "type": "number" },
+        "probability_weight": { "type": "number" }
+      },
+      "required": ["slot_index", "name", "is_cash", "amount", "total_quantity", "remaining_quantity"]
+    },
+    "ticket": {
+      "title": "Ticket",
+      "description": "Event ticket for spinning the cash lucky wheel",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 64 },
+        "occasion": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["UNUSED", "USED", "REVOKED"] },
+        "created_at": { "type": "string" },
+        "used_at": { "type": "string" },
+        "used_by": { "type": "string" }
+      },
+      "required": ["code", "occasion", "status", "created_at"]
+    },
+    "ticket_owner": {
+      "title": "Ticket Owner",
+      "description": "Limits 1 ticket per student account per occasion",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "maxLength": 64 },
+        "occasion": { "type": "string", "maxLength": 128 },
+        "ticket_code": { "type": "string", "maxLength": 64 },
+        "claimed_at": { "type": "string" }
+      },
+      "required": ["user_id", "occasion", "ticket_code", "claimed_at"]
+    },
+    "spin": {
+      "title": "Spin",
+      "description": "Wheel spin history log",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "spin_type": { "type": "string", "enum": ["TICKET", "FREE", "TRIAL"] },
+        "ticket_code": { "type": "string" },
+        "prize_amount": { "type": "number" },
+        "prize_name": { "type": "string" },
+        "slot_index": { "type": "number" },
+        "is_win": { "type": "number" },
+        "claim_code": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["spin_type", "prize_amount", "prize_name", "slot_index", "is_win", "created_at"]
+    },
+    "claim": {
+      "title": "Claim",
+      "description": "Prize payout claim record",
+      "type": "object",
+      "properties": {
+        "claim_code": { "type": "string", "maxLength": 64 },
+        "spin_id": { "type": "string" },
+        "ticket_code": { "type": "string" },
+        "prize_amount": { "type": "number" },
+        "student_name": { "type": "string", "maxLength": 256 },
+        "student_class": { "type": "string", "maxLength": 128 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "payout_method": { "type": "string" },
+        "payout_account": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["UNSUBMITTED", "PENDING_VERIFICATION", "VERIFIED", "PENDING_PAYOUT", "PAID", "REJECTED"]
+        },
+        "admin_note": { "type": "string" },
+        "transaction_ref": { "type": "string" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["claim_code", "prize_amount", "status", "created_at"]
+    },
+    "user": {
+      "title": "User",
+      "description": "Registered student account",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "maxLength": 128 },
+        "password_hash": { "type": "string" },
+        "password_salt": { "type": "string" },
+        "full_name": { "type": "string", "maxLength": 256 },
+        "student_class": { "type": "string", "maxLength": 128 },
+        "free_spins_remaining": { "type": "number" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["username", "password_hash", "free_spins_remaining", "created_at"]
+    },
+    "admin": {
+      "title": "Admin",
+      "description": "Administrator account credentials and role",
+      "type": "object",
+      "properties": {
+        "username": { "type": "string", "maxLength": 128 },
+        "password_hash": { "type": "string" },
+        "password_salt": { "type": "string" },
+        "role": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["username", "password_hash", "role", "created_at"]
+    },
+    "audit_log": {
+      "title": "Audit Log",
+      "description": "Administrative actions audit log",
+      "type": "object",
+      "properties": {
+        "admin_username": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "ip_address": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["admin_username", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/event_config/{eventId}": {
+      "schema": { "$ref": "event_config" },
+      "description": "Event settings and budget tracking"
+    },
+    "/prize_tiers/{tierId}": {
+      "schema": { "$ref": "prize_tier" },
+      "description": "Prize definitions and remaining inventory"
+    },
+    "/tickets/{ticketCode}": {
+      "schema": { "$ref": "ticket" },
+      "description": "Tickets generated for event participants"
+    },
+    "/ticket_owners/{ownerId}": {
+      "schema": { "$ref": "ticket_owner" },
+      "description": "Ticket assignment per student and occasion"
+    },
+    "/spins/{spinId}": {
+      "schema": { "$ref": "spin" },
+      "description": "Record of all spins"
+    },
+    "/claims/{claimCode}": {
+      "schema": { "$ref": "claim" },
+      "description": "Prize redemption requests"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "user" },
+      "description": "Student account profiles and credentials"
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "admin" },
+      "description": "Admin accounts"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "audit_log" },
+      "description": "Admin activity audit log"
+    }
+  }
+}
