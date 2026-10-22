@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="font-extrabold tracking-tight text-sm sm:text-lg uppercase drop-shadow-sm truncate">
-                  Vòng Quay May Mắn
+                  Bách Khoa Events
                 </span>
                 {event && (
                   <span

@@ -13,16 +13,12 @@ import { ClaimModal } from './components/ClaimModal.tsx';
 import { ClaimLookup } from './components/ClaimLookup.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
+import { EventWelcome } from './components/EventWelcome.tsx';
 import {
   Trophy,
-  Gift,
-  Sparkles,
-  Search,
   CheckCircle2,
   AlertTriangle,
   Info,
-  ShieldAlert,
-  Coins,
   School,
 } from 'lucide-react';
 
@@ -388,7 +384,7 @@ export default function App() {
   const slotsToDisplay = event?.slots && event.slots.length === 8 ? event.slots : WHEEL_SLOTS;
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans selection:bg-red-500 selection:text-white">
+    <div className="min-h-screen bg-[#fffdf9] text-stone-800 flex flex-col font-sans selection:bg-rose-200 selection:text-rose-950">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed top-20 right-4 z-50 max-w-sm p-4 rounded-2xl shadow-2xl border text-sm font-semibold flex items-center gap-2.5 animate-slide-in backdrop-blur-md bg-white text-gray-900 border-amber-300">
@@ -432,33 +428,13 @@ export default function App() {
           />
         ) : (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-            {/* Header School Banner */}
-            <div className="text-center mb-6 max-w-2xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-950/80 border border-amber-400/40 text-amber-300 text-xs font-bold mb-2 uppercase tracking-wider">
-                <School className="w-3.5 h-3.5" />
-                <span>{event?.name || 'Sự Kiện Trường Học 2026'}</span>
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-200 to-yellow-400 tracking-tight drop-shadow">
-                VÒNG QUAY MAY MẮN HỌC ĐƯỜNG
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-lg mx-auto">
-                Quay số trúng tiền mặt 10.000đ, 20.000đ, 50.000đ, 100.000đ hoặc nhận những lời chúc ý nghĩa tiếp thêm năng lượng học tập!
-              </p>
-
-              {/* Remaining Prizes Summary Pills */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-3.5 text-xs">
-                <div className="bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-xl text-amber-300 font-bold flex items-center gap-1.5 shadow-sm">
-                  <Coins className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Giải tiền còn lại: {event?.totalCashRemaining || 0} suất</span>
-                </div>
-                <div className="bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-xl text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm">
-                  <span>Ngân sách còn: {event?.remainingBudget?.toLocaleString('vi-VN')}đ</span>
-                </div>
-              </div>
-            </div>
+            <EventWelcome event={event} onOpenLookup={() => {
+              setLookupInitialCode('');
+              setIsLookupModalOpen(true);
+            }} />
 
             {/* Lucky Wheel & Spin Controls Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center max-w-6xl mx-auto">
+            <div id="lucky-wheel" className="scroll-mt-24 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center max-w-6xl mx-auto">
               {/* Wheel Centerpiece (Left Column) */}
               <div className="lg:col-span-7 flex flex-col items-center justify-center">
                 <LuckyWheel
@@ -550,49 +526,23 @@ export default function App() {
               </div>
             </div>
 
-            {/* Quick Claim Lookup Banner */}
-            <div className="mt-8 bg-gradient-to-r from-red-900/60 via-slate-800 to-amber-900/60 border border-amber-400/30 rounded-3xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 max-w-5xl mx-auto shadow-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-400 text-red-900 flex items-center justify-center font-bold shrink-0 shadow-md">
-                  <Search className="w-6 h-6" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-base text-white">
-                    Bạn Đã Trúng Thưởng Trước Đó?
-                  </h4>
-                  <p className="text-xs text-slate-300">
-                    Tra cứu tiến độ xác minh và lịch nhận tiền bất kỳ lúc nào bằng mã CLM-XXXXXX.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  setLookupInitialCode('');
-                  setIsLookupModalOpen(true);
-                }}
-                className="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md transition active:scale-95 shrink-0"
-              >
-                Tra Cứu Mã Nhận Thưởng
-              </button>
-            </div>
           </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950/80 py-6 text-center text-xs text-slate-400">
+      <footer className="border-t border-rose-100 bg-white py-6 text-center text-xs text-stone-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <School className="w-4 h-4 text-amber-400" />
+            <School className="w-4 h-4 text-rose-600" />
             <span className="font-medium">
-              Vòng Quay May Mắn Sự Kiện Trường Học © 2026. Mọi quyền được bảo lưu.
+              Bách Khoa Events · Trường Trung cấp Công nghiệp Bách Khoa Sầm Sơn
             </span>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-slate-400">
+          <div className="flex items-center gap-4 text-[11px] text-stone-500">
             <span>Xử lý giao dịch nguyên tử (ACID Transaction)</span>
             <span>•</span>
-            <span className="text-emerald-400 font-semibold">Hệ thống an toàn</span>
+            <span className="text-emerald-700 font-semibold">Hệ thống an toàn</span>
           </div>
         </div>
       </footer>
