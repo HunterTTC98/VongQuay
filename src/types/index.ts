@@ -5,6 +5,7 @@ export interface WheelSlot {
   isCash: boolean;
   color: string;
   textColor: string;
+  isEnabled?: boolean;
 }
 
 export interface PrizeTier {
@@ -16,6 +17,7 @@ export interface PrizeTier {
   total_quantity: number;
   remaining_quantity: number;
   probability_weight: number;
+  is_enabled?: boolean;
 }
 
 export interface EventConfig {

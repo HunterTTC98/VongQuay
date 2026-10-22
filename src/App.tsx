@@ -59,6 +59,7 @@ export default function App() {
   // Wheel state
   const [isSpinning, setIsSpinning] = useState(false);
   const spinLockRef = useRef(false);
+  const [spinSlots, setSpinSlots] = useState<WheelSlot[] | null>(null);
   const [targetSlotIndex, setTargetSlotIndex] = useState<number | null>(null);
   const [spinOutcome, setSpinOutcome] = useState<{
     slotName: string;
@@ -200,6 +201,7 @@ export default function App() {
     }
 
     setTargetSlotIndex(null);
+    setSpinSlots(null);
     spinLockRef.current = true;
     soundManager.playSpinStart();
     setIsSpinning(true);
@@ -226,6 +228,7 @@ export default function App() {
       }
 
       const outcome = data.result;
+      setSpinSlots(outcome.wheelSlots || null);
       setSpinOutcome({
         slotName: outcome.slotName,
         amount: outcome.amount,
@@ -235,7 +238,7 @@ export default function App() {
       });
 
       // Start animated rotation towards target slot
-      setTargetSlotIndex(outcome.slotIndex);
+      setTargetSlotIndex(outcome.wheelIndex ?? outcome.slotIndex);
       setIsSpinning(true);
 
       // Invalidate ticket input since it is now used
@@ -246,6 +249,7 @@ export default function App() {
       });
     } catch (err: any) {
       spinLockRef.current = false;
+      setSpinSlots(null);
       setIsSpinning(false);
       soundManager.playSpinError();
       showToast('error', err.message || 'Lỗi xử lý lượt quay');
@@ -267,6 +271,7 @@ export default function App() {
     }
 
     setTargetSlotIndex(null);
+    setSpinSlots(null);
     spinLockRef.current = true;
     soundManager.playSpinStart();
     setIsSpinning(true);
@@ -288,6 +293,7 @@ export default function App() {
       }
 
       const outcome = data.result;
+      setSpinSlots(outcome.wheelSlots || null);
       setSpinOutcome({
         slotName: outcome.slotName,
         amount: 0,
@@ -303,10 +309,11 @@ export default function App() {
       setCurrentUser(updatedUser);
       localStorage.setItem('school_wheel_student', JSON.stringify(updatedUser));
 
-      setTargetSlotIndex(outcome.slotIndex);
+      setTargetSlotIndex(outcome.wheelIndex ?? outcome.slotIndex);
       setIsSpinning(true);
     } catch (err: any) {
       spinLockRef.current = false;
+      setSpinSlots(null);
       setIsSpinning(false);
       soundManager.playSpinError();
       showToast('error', err.message || 'Lỗi quay miễn phí');
@@ -318,6 +325,7 @@ export default function App() {
     if (spinLockRef.current) return;
 
     setTargetSlotIndex(null);
+    setSpinSlots(null);
     spinLockRef.current = true;
     soundManager.playSpinStart();
     setIsSpinning(true);
@@ -334,6 +342,7 @@ export default function App() {
       }
 
       const outcome = data.result;
+      setSpinSlots(outcome.wheelSlots || null);
       setSpinOutcome({
         slotName: outcome.slotName,
         amount: 0,
@@ -341,10 +350,11 @@ export default function App() {
         isTrial: true,
       });
 
-      setTargetSlotIndex(outcome.slotIndex);
+      setTargetSlotIndex(outcome.wheelIndex ?? outcome.slotIndex);
       setIsSpinning(true);
     } catch (err: any) {
       spinLockRef.current = false;
+      setSpinSlots(null);
       setIsSpinning(false);
       soundManager.playSpinError();
       showToast('error', err.message || 'Lỗi quay thử');
@@ -354,6 +364,7 @@ export default function App() {
   // Called when wheel animation physically finishes
   const handleSpinEnd = () => {
     spinLockRef.current = false;
+    setSpinSlots(null);
     setIsSpinning(false);
     fetchEventConfig(); // Refresh remaining stats
 
@@ -406,6 +417,7 @@ export default function App() {
   };
 
   const slotsToDisplay = event?.slots && event.slots.length === 8 ? event.slots : WHEEL_SLOTS;
+  const activeWheelSlots = slotsToDisplay.filter((slot) => slot.isEnabled !== false);
 
   return (
     <div className="min-h-screen bg-[#fffdf9] text-stone-800 flex flex-col font-sans selection:bg-rose-200 selection:text-rose-950">
@@ -462,7 +474,7 @@ export default function App() {
               {/* Wheel Centerpiece (Left Column) */}
               <div className="lg:col-span-7 flex flex-col items-center justify-center">
                 <LuckyWheel
-                  slots={slotsToDisplay}
+                  slots={spinSlots || activeWheelSlots}
                   isSpinning={isSpinning}
                   onSpinEnd={handleSpinEnd}
                   targetSlotIndex={targetSlotIndex}
@@ -514,7 +526,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {slotsToDisplay.map((slot) => {
+                {activeWheelSlots.map((slot) => {
                   const prizeData = event?.prizes?.find((p) => p.slot_index === slot.index);
                   return (
                     <div

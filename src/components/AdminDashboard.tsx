@@ -54,6 +54,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Tickets
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedTicketCodes, setSelectedTicketCodes] = useState<string[]>([]);
   const [ticketSearch, setTicketSearch] = useState('');
   const [ticketStatusFilter, setTicketStatusFilter] = useState('ALL');
   const [batchCount, setBatchCount] = useState(20);
@@ -161,6 +162,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (activeTab === 'LOGS') fetchLogs();
   }, [activeTab, ticketStatusFilter, ticketSearch]);
 
+  useEffect(() => {
+    setSelectedTicketCodes([]);
+  }, [ticketStatusFilter, ticketSearch]);
+
   // Handlers
   const handleSetEventStatus = async (status: 'ACTIVE' | 'PAUSED' | 'ENDED') => {
     try {
@@ -207,7 +212,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     slotIndex: number,
     remainingQuantity: number,
     totalQuantity: number,
-    probabilityWeight: number
+    probabilityWeight: number,
+    name: string,
+    isEnabled: boolean
   ) => {
     try {
       const res = await fetch('/api/admin/prizes/update', {
@@ -218,6 +225,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           remainingQuantity: Number(remainingQuantity),
           totalQuantity: Number(totalQuantity),
           probabilityWeight: Number(probabilityWeight),
+          name,
+          isEnabled,
         }),
       });
       const data = await res.json();
@@ -264,6 +273,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
       const data = await res.json();
       if (data.success) {
+        setSelectedTicketCodes((current) => current.filter((selectedCode) => selectedCode !== code));
         showNotice('success', data.message);
         fetchTickets();
         fetchStats();
@@ -272,6 +282,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch {
       showNotice('error', 'Lỗi thu hồi vé');
+    }
+  };
+
+  const handleRevokeSelectedTickets = async () => {
+    const codes = selectedTicketCodes.filter((code) => tickets.some((ticket) => ticket.code === code && ticket.status === 'UNUSED'));
+    if (codes.length === 0) {
+      showNotice('error', 'Hãy chọn ít nhất một vé chưa sử dụng');
+      return;
+    }
+    if (!confirm(`Thu hồi ${codes.length} vé chưa sử dụng đã chọn? Vé đã dùng sẽ không bị thay đổi.`)) return;
+    try {
+      const res = await fetch('/api/admin/tickets/revoke-batch', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ codes }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Không thể thu hồi vé đã chọn');
+      setSelectedTicketCodes([]);
+      showNotice('success', data.message);
+      fetchTickets();
+      fetchStats();
+    } catch (err: any) {
+      showNotice('error', err.message || 'Lỗi thu hồi vé hàng loạt');
     }
   };
 
@@ -349,6 +383,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       (c.phone && c.phone.includes(claimSearch));
     return matchStatus && matchSearch;
   });
+  const visibleUnusedTickets = tickets.filter((ticket) => ticket.status === 'UNUSED');
+  const allVisibleUnusedSelected = visibleUnusedTickets.length > 0 &&
+    visibleUnusedTickets.every((ticket) => selectedTicketCodes.includes(ticket.code));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -614,9 +651,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200 shadow-sm space-y-4 animate-fade-in">
           <div className="flex items-center justify-between border-b pb-4">
             <div>
-              <h3 className="text-base font-bold text-gray-900">Quản Lý 8 Ô Vòng Quay & Tồn Kho</h3>
+              <h3 className="text-base font-bold text-gray-900">Cấu Hình Ô Vòng Quay & Tồn Kho</h3>
               <p className="text-xs text-gray-500">
-                Cập nhật số lượng giải tồn kho, tổng phát hành và trọng số quay thưởng.
+                Đổi tên, bật/tắt ô trên vòng quay và cấu hình số lượng, trọng số. Tắt ô sẽ loại ô đó khỏi kết quả quay.
               </p>
             </div>
           </div>
@@ -629,6 +666,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <th className="py-3 px-3">Tên Giải / Lời Chúc</th>
                   <th className="py-3 px-3">Loại</th>
                   <th className="py-3 px-3">Mệnh Giá</th>
+                  <th className="py-3 px-3">Hiển thị</th>
                   <th className="py-3 px-3">Tồn Kho</th>
                   <th className="py-3 px-3">Tổng SL</th>
                   <th className="py-3 px-3">Trọng Số</th>
@@ -641,8 +679,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <td className="py-3 px-3 font-bold text-gray-800">
                       Ô #{p.slot_index + 1}
                     </td>
-                    <td className="py-3 px-3 font-semibold text-gray-900">
-                      {p.name}
+                    <td className="py-3 px-3">
+                      <input
+                        type="text"
+                        defaultValue={p.name}
+                        id={`name-${p.slot_index}`}
+                        maxLength={60}
+                        className="w-44 min-w-36 px-2 py-1 bg-gray-50 border rounded-lg text-xs font-semibold"
+                        aria-label={`Tên ô số ${p.slot_index + 1}`}
+                      />
                     </td>
                     <td className="py-3 px-3">
                       {p.is_cash ? (
@@ -657,6 +702,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </td>
                     <td className="py-3 px-3 font-mono font-bold text-emerald-700">
                       {p.amount > 0 ? `${p.amount.toLocaleString('vi-VN')}đ` : '0đ'}
+                    </td>
+                    <td className="py-3 px-3">
+                      <label className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-gray-700">
+                        <input
+                          type="checkbox"
+                          defaultChecked={p.is_enabled !== false}
+                          id={`enabled-${p.slot_index}`}
+                          className="h-4 w-4 rounded border-gray-300 accent-red-600"
+                        />
+                        Hiện trên vòng quay
+                      </label>
                     </td>
                     <td className="py-3 px-3">
                       <input
@@ -690,7 +746,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           const rem = (document.getElementById(`rem-${p.slot_index}`) as HTMLInputElement)?.value;
                           const tot = (document.getElementById(`tot-${p.slot_index}`) as HTMLInputElement)?.value;
                           const weight = (document.getElementById(`weight-${p.slot_index}`) as HTMLInputElement)?.value;
-                          handleUpdatePrizeTier(p.slot_index, Number(rem), Number(tot), Number(weight));
+                          const name = (document.getElementById(`name-${p.slot_index}`) as HTMLInputElement)?.value;
+                          const enabled = (document.getElementById(`enabled-${p.slot_index}`) as HTMLInputElement)?.checked;
+                          handleUpdatePrizeTier(p.slot_index, Number(rem), Number(tot), Number(weight), name, enabled);
                         }}
                         className="px-3 py-1 bg-gray-800 hover:bg-black text-white text-xs font-bold rounded-lg transition"
                       >
@@ -797,10 +855,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
+            {visibleUnusedTickets.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50/60 px-3 py-2.5">
+                <label className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={allVisibleUnusedSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedTicketCodes((current) => Array.from(new Set([...current, ...visibleUnusedTickets.map((ticket) => ticket.code)])));
+                      } else {
+                        const visibleCodes = new Set(visibleUnusedTickets.map((ticket) => ticket.code));
+                        setSelectedTicketCodes((current) => current.filter((code) => !visibleCodes.has(code)));
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 accent-red-600"
+                  />
+                  Chọn toàn bộ {visibleUnusedTickets.length} vé chưa dùng trong danh sách này
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRevokeSelectedTickets}
+                  disabled={selectedTicketCodes.length === 0}
+                  className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Thu hồi đã chọn ({selectedTicketCodes.length})
+                </button>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead className="bg-gray-50 text-gray-600 font-bold border-y">
                   <tr>
+                    <th className="py-3 px-3" aria-label="Chọn vé" />
                     <th className="py-3 px-3">Mã Vé</th>
                     <th className="py-3 px-3">Dịp Sự Kiện</th>
                     <th className="py-3 px-3">Trạng Thái</th>
@@ -812,6 +900,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <tbody className="divide-y divide-gray-100">
                   {tickets.map((t) => (
                     <tr key={t.code} className="hover:bg-gray-50/70">
+                      <td className="py-2.5 px-3">
+                        {t.status === 'UNUSED' && (
+                          <input
+                            type="checkbox"
+                            checked={selectedTicketCodes.includes(t.code)}
+                            onChange={(e) => setSelectedTicketCodes((current) => e.target.checked
+                              ? Array.from(new Set([...current, t.code]))
+                              : current.filter((code) => code !== t.code))}
+                            aria-label={`Chọn vé ${t.code}`}
+                            className="h-4 w-4 rounded border-gray-300 accent-red-600"
+                          />
+                        )}
+                      </td>
                       <td className="py-2.5 px-3 font-mono font-bold text-gray-900">
                         {t.code}
                       </td>
@@ -853,7 +954,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   ))}
                   {tickets.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-6 text-center text-gray-400">
+                      <td colSpan={7} className="py-6 text-center text-gray-400">
                         Không có mã vé nào phù hợp bộ lọc
                       </td>
                     </tr>

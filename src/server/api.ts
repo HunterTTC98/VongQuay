@@ -34,6 +34,24 @@ import {
 
 const router = express.Router();
 
+function hydrateWheelSlots(prizeDocs: any[]) {
+  const tiersBySlot = new Map(prizeDocs.map((tier) => [Number(tier.slot_index), tier]));
+  return WHEEL_SLOTS.map((slot) => {
+    const tier = tiersBySlot.get(slot.index);
+    return {
+      ...slot,
+      name: typeof tier?.name === 'string' && tier.name.trim() ? tier.name.trim() : slot.name,
+      isEnabled: tier?.is_enabled !== false,
+    };
+  });
+}
+
+function wheelIndexForSlot(activeSlots: Array<{ index: number }>, slotIndex: number): number {
+  const index = activeSlots.findIndex((slot) => slot.index === slotIndex);
+  if (index < 0) throw new Error('Ô kết quả hiện đã bị tắt. Vui lòng quay lại.');
+  return index;
+}
+
 /**
  * Health check endpoint
  */
@@ -82,7 +100,7 @@ router.get('/event', async (_req: Request, res: Response) => {
         usedBudget,
         remainingBudget: Math.max(0, totalBudget - usedBudget),
         totalCashRemaining,
-        slots: WHEEL_SLOTS,
+        slots: hydrateWheelSlots(prizeSummary),
         prizes: prizeSummary.map((p) => ({
           slot_index: Number(p.slot_index),
           name: p.name,
@@ -90,6 +108,7 @@ router.get('/event', async (_req: Request, res: Response) => {
           amount: Number(p.amount),
           remaining_quantity: Number(p.remaining_quantity),
           total_quantity: Number(p.total_quantity),
+          is_enabled: p.is_enabled !== false,
         })),
       },
     });
@@ -156,23 +175,28 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
 
   // TRIAL SPIN: Pure calculation, zero database writes
   if (spinType === 'TRIAL') {
-    const outcome = determineSpinOutcome({
-      spinType: 'TRIAL',
-      availablePrizes: [],
-      remainingBudget: 0,
-    });
-    res.json({
-      success: true,
-      isTrial: true,
-      result: {
-        slotIndex: outcome.slotIndex,
-        slotName: outcome.slotName,
-        amount: 0,
-        isWin: false,
-        isCash: false,
-        message: 'Đây là lượt quay thử! Kết quả không có giá trị nhận thưởng và không thay đổi dữ liệu.',
-      },
-    });
+    try {
+      const db = await getDb();
+      const prizesSnap = await db.collection('prize_tiers').orderBy('slot_index', 'asc').get();
+      const activeSlots = hydrateWheelSlots(prizesSnap.docs.map((doc) => doc.data()!)).filter((slot) => slot.isEnabled);
+      const outcome = determineSpinOutcome({ spinType: 'TRIAL', availablePrizes: [], remainingBudget: 0, activeSlots });
+      res.json({
+        success: true,
+        isTrial: true,
+        result: {
+          slotIndex: outcome.slotIndex,
+          wheelIndex: wheelIndexForSlot(activeSlots, outcome.slotIndex),
+          wheelSlots: activeSlots,
+          slotName: outcome.slotName,
+          amount: 0,
+          isWin: false,
+          isCash: false,
+          message: 'Đây là lượt quay thử! Kết quả không có giá trị nhận thưởng và không thay đổi dữ liệu.',
+        },
+      });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: err.message || 'Không thể thực hiện lượt quay thử' });
+    }
     return;
   }
 
@@ -192,7 +216,8 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
         }
 
         const userRef = db.collection('users').doc(req.student.id);
-        const [eventSnap, userSnap] = await tx.getAll([eventRef, userRef]);
+        const prizeTierRefs = [0, 1, 2, 3, 4, 5, 6, 7].map((slotIdx) => db.collection('prize_tiers').doc(`slot_${slotIdx}`));
+        const [eventSnap, userSnap, ...prizeTierSnaps] = await tx.getAll([eventRef, userRef, ...prizeTierRefs]);
         const event = eventSnap.exists ? eventSnap.data() : null;
 
         if (!event || event.status !== 'ACTIVE') {
@@ -211,10 +236,13 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
         }
 
         const newFreeSpins = remainingSpins - 1;
+        const activeSlots = hydrateWheelSlots(prizeTierSnaps.filter((snap) => snap.exists).map((snap) => snap.data()!))
+          .filter((slot) => slot.isEnabled);
         const outcome = determineSpinOutcome({
           spinType: 'FREE',
           availablePrizes: [],
           remainingBudget: 0,
+          activeSlots,
         });
 
         const spinId = crypto.randomUUID();
@@ -240,6 +268,8 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
           isTrial: false,
           result: {
             slotIndex: outcome.slotIndex,
+            wheelIndex: wheelIndexForSlot(activeSlots, outcome.slotIndex),
+            wheelSlots: activeSlots,
             slotName: outcome.slotName,
             amount: 0,
             isWin: false,
@@ -304,16 +334,22 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
                 remaining: Number(p.remaining_quantity || 0),
                 amount: Number(p.amount || 0),
                 probability_weight: Number(p.probability_weight || 10),
+                name: typeof p.name === 'string' ? p.name : undefined,
+                is_enabled: p.is_enabled !== false,
               });
             }
           }
         }
+
+        const activeSlots = hydrateWheelSlots(prizeTierSnaps.filter((snap) => snap.exists).map((snap) => snap.data()!))
+          .filter((slot) => slot.isEnabled);
 
         // Calculate Outcome
         const outcome = determineSpinOutcome({
           spinType: 'TICKET',
           availablePrizes: availableCashPrizes,
           remainingBudget,
+          activeSlots,
         });
 
         const nowStr = new Date().toISOString();
@@ -389,6 +425,8 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
           isTrial: false,
           result: {
             slotIndex: outcome.slotIndex,
+            wheelIndex: wheelIndexForSlot(activeSlots, outcome.slotIndex),
+            wheelSlots: activeSlots,
             slotName: outcome.slotName,
             amount: outcome.amount,
             isWin: outcome.isWin,
@@ -963,33 +1001,63 @@ router.post('/admin/event/config', requireAdmin, async (req: AuthenticatedReques
  */
 router.post('/admin/prizes/update', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { slotIndex, totalQuantity, remainingQuantity, probabilityWeight } = req.body;
-
-    const validation = validatePrizeTierUpdate({
-      totalQuantity: Number(totalQuantity),
-      remainingQuantity: Number(remainingQuantity),
-      probabilityWeight: probabilityWeight !== undefined ? Number(probabilityWeight) : undefined,
-    });
-
-    if (!validation.valid) {
-      res.status(400).json({ success: false, error: validation.error });
+    const { slotIndex, totalQuantity, remainingQuantity, probabilityWeight, name, isEnabled } = req.body;
+    const normalizedSlot = Number(slotIndex);
+    if (!Number.isInteger(normalizedSlot) || normalizedSlot < 0 || normalizedSlot > 7) {
+      res.status(400).json({ success: false, error: 'Ô vòng quay không hợp lệ' });
+      return;
+    }
+    if (name !== undefined && (typeof name !== 'string' || !name.trim() || name.trim().length > 60)) {
+      res.status(400).json({ success: false, error: 'Tên ô phải từ 1 đến 60 ký tự' });
+      return;
+    }
+    if (isEnabled !== undefined && typeof isEnabled !== 'boolean') {
+      res.status(400).json({ success: false, error: 'Trạng thái hiển thị không hợp lệ' });
       return;
     }
 
     const db = await getDb();
-    const tierRef = db.collection('prize_tiers').doc(`slot_${slotIndex}`);
+    const tierRefs = [0, 1, 2, 3, 4, 5, 6, 7].map((index) => db.collection('prize_tiers').doc(`slot_${index}`));
+    await db.runTransaction(async (tx) => {
+      const tierSnaps = await tx.getAll(tierRefs);
+      const currentSnap = tierSnaps[normalizedSlot];
+      if (!currentSnap.exists) throw new Error('Không tìm thấy cấu hình ô giải thưởng');
+      const current = currentSnap.data()!;
+      const nextEnabled = isEnabled === undefined ? current.is_enabled !== false : isEnabled;
+      const isWishSlot = Number(current.is_cash) !== 1;
 
-    const updates: Record<string, any> = {};
-    if (totalQuantity !== undefined) updates.total_quantity = Number(totalQuantity);
-    if (remainingQuantity !== undefined) updates.remaining_quantity = Number(remainingQuantity);
-    if (probabilityWeight !== undefined) updates.probability_weight = Number(probabilityWeight);
+      if (!nextEnabled && isWishSlot) {
+        const remainingEnabledWishes = tierSnaps.reduce((count, snap, index) => {
+          if (index === normalizedSlot || !snap.exists) return count;
+          const tier = snap.data()!;
+          return count + (Number(tier.is_cash) !== 1 && tier.is_enabled !== false ? 1 : 0);
+        }, 0);
+        if (remainingEnabledWishes === 0) throw new Error('Cần giữ lại ít nhất một ô lời chúc để lượt quay miễn phí hoạt động');
+      }
 
-    await tierRef.update(updates);
+      const nextTotal = totalQuantity === undefined ? Number(current.total_quantity) : Number(totalQuantity);
+      const nextRemaining = remainingQuantity === undefined ? Number(current.remaining_quantity) : Number(remainingQuantity);
+      const validation = validatePrizeTierUpdate({
+        totalQuantity: nextTotal,
+        remainingQuantity: nextRemaining,
+        probabilityWeight: probabilityWeight === undefined ? Number(current.probability_weight) : Number(probabilityWeight),
+      });
+      if (!validation.valid) throw new Error(validation.error || 'Cấu hình số lượng giải không hợp lệ');
+
+      const updates: Record<string, any> = {
+        total_quantity: nextTotal,
+        remaining_quantity: nextRemaining,
+        probability_weight: probabilityWeight === undefined ? Number(current.probability_weight) : Number(probabilityWeight),
+        is_enabled: nextEnabled,
+      };
+      if (name !== undefined) updates.name = name.trim();
+      tx.update(tierRefs[normalizedSlot], updates);
+    });
 
     await logAudit(
       req.admin!.username,
       'PRIZE_UPDATE',
-      `Cập nhật ô số ${slotIndex}: tồn=${remainingQuantity}, tổng=${totalQuantity}`,
+      `Cập nhật ô số ${normalizedSlot + 1}: tên=${name || ''}, hiển thị=${isEnabled ?? 'giữ nguyên'}, tồn=${remainingQuantity ?? ''}, tổng=${totalQuantity ?? ''}`,
       req.ip || '127.0.0.1'
     );
 
@@ -1074,6 +1142,46 @@ router.post('/admin/tickets/generate', requireAdmin, async (req: AuthenticatedRe
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/** Admin: Atomically revoke a selected batch of unused tickets */
+router.post('/admin/tickets/revoke-batch', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rawCodes = req.body?.codes;
+    if (!Array.isArray(rawCodes) || rawCodes.length === 0) {
+      res.status(400).json({ success: false, error: 'Vui lòng chọn ít nhất một vé để thu hồi' });
+      return;
+    }
+    if (rawCodes.length > 400 || rawCodes.some((code) => typeof code !== 'string' || !code.trim())) {
+      res.status(400).json({ success: false, error: 'Mỗi lần chỉ thu hồi tối đa 400 mã vé hợp lệ' });
+      return;
+    }
+
+    const codes = [...new Set(rawCodes.map((code: string) => code.trim().toUpperCase()))];
+    const db = await getDb();
+    const refs = codes.map((code) => db.collection('tickets').doc(code));
+    const result = await db.runTransaction(async (tx) => {
+      const snapshots = await tx.getAll(refs);
+      let revoked = 0;
+      for (let index = 0; index < snapshots.length; index += 1) {
+        const snap = snapshots[index];
+        if (!snap.exists || snap.data()?.status !== 'UNUSED') continue;
+        tx.update(refs[index], { status: 'REVOKED' });
+        revoked += 1;
+      }
+      return { revoked, skipped: codes.length - revoked };
+    });
+
+    await logAudit(
+      req.admin!.username,
+      'REVOKE_TICKETS_BATCH',
+      `Thu hồi hàng loạt: ${result.revoked} vé; bỏ qua ${result.skipped} vé không còn ở trạng thái chưa dùng`,
+      req.ip || '127.0.0.1'
+    );
+    res.json({ success: true, ...result, message: `Đã thu hồi ${result.revoked} vé; bỏ qua ${result.skipped} vé đã dùng, đã thu hồi hoặc không tồn tại.` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Lỗi thu hồi vé hàng loạt' });
   }
 });
 

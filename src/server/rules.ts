@@ -136,6 +136,8 @@ export interface AvailablePrizeTier {
   remaining: number;
   amount: number;
   probability_weight: number;
+  name?: string;
+  is_enabled?: boolean;
 }
 
 export interface SpinCalculationResult {
@@ -153,66 +155,51 @@ export function determineSpinOutcome(params: {
   spinType: 'TICKET' | 'FREE' | 'TRIAL';
   availablePrizes: AvailablePrizeTier[];
   remainingBudget: number;
+  activeSlots?: WheelSlotDef[];
   randomFn?: () => number;
 }): SpinCalculationResult {
   const rand = params.randomFn || Math.random;
+  const activeSlots = params.activeSlots || WHEEL_SLOTS;
+  const wishSlots = activeSlots.filter((slot) => !slot.isCash);
+  const pickWish = (): SpinCalculationResult => {
+    if (wishSlots.length === 0) throw new Error('Hiện không có ô lời chúc nào được bật');
+    const slot = wishSlots[Math.floor(rand() * wishSlots.length)];
+    return { slotIndex: slot.index, slotName: slot.name, amount: 0, isWin: false, isCash: false };
+  };
 
   // Free spins or trial spins: only pick from wish slots
   if (params.spinType === 'FREE' || params.spinType === 'TRIAL') {
-    const wishIndex = WISH_SLOT_INDICES[Math.floor(rand() * WISH_SLOT_INDICES.length)];
-    const slot = WHEEL_SLOTS[wishIndex];
-    return {
-      slotIndex: slot.index,
-      slotName: slot.name,
-      amount: 0,
-      isWin: false,
-      isCash: false,
-    };
+    return pickWish();
   }
 
   // Ticket spin: filter cash tiers with remaining inventory and within remaining budget
   const eligibleCashTiers = params.availablePrizes.filter(
-    (tier) => tier.remaining > 0 && tier.amount <= params.remainingBudget && tier.amount > 0
+    (tier) => tier.is_enabled !== false && tier.remaining > 0 && tier.amount <= params.remainingBudget && tier.amount > 0
   );
 
   // If no prizes remain or budget exhausted, fall back to a non-cash wish slot
   if (eligibleCashTiers.length === 0) {
-    const fallbackSlot = WHEEL_SLOTS[1];
-    return {
-      slotIndex: fallbackSlot.index,
-      slotName: fallbackSlot.name,
-      amount: 0,
-      isWin: false,
-      isCash: false,
-    };
+    return pickWish();
   }
 
   const totalCashWeight = eligibleCashTiers.reduce((acc, t) => acc + (t.probability_weight || 10), 0);
-  const wishWeight = Math.max(20, Math.floor(totalCashWeight * 0.4));
+  const wishWeight = wishSlots.length > 0 ? Math.max(20, Math.floor(totalCashWeight * 0.4)) : 0;
   const totalWeight = totalCashWeight + wishWeight;
 
   const roll = rand() * totalWeight;
 
   if (roll > totalCashWeight) {
-    const wishIndex = WISH_SLOT_INDICES[Math.floor(rand() * WISH_SLOT_INDICES.length)];
-    const slot = WHEEL_SLOTS[wishIndex];
-    return {
-      slotIndex: slot.index,
-      slotName: slot.name,
-      amount: 0,
-      isWin: false,
-      isCash: false,
-    };
+    return pickWish();
   }
 
   let accumulator = 0;
   for (const tier of eligibleCashTiers) {
     accumulator += (tier.probability_weight || 10);
     if (roll <= accumulator) {
-      const slot = WHEEL_SLOTS[tier.slot_index];
+      const slot = activeSlots.find((candidate) => candidate.index === tier.slot_index) || WHEEL_SLOTS[tier.slot_index];
       return {
         slotIndex: slot.index,
-        slotName: slot.name,
+        slotName: tier.name || slot.name,
         amount: tier.amount,
         isWin: true,
         isCash: true,
@@ -221,10 +208,10 @@ export function determineSpinOutcome(params: {
   }
 
   const firstTier = eligibleCashTiers[0];
-  const slot = WHEEL_SLOTS[firstTier.slot_index];
+  const slot = activeSlots.find((candidate) => candidate.index === firstTier.slot_index) || WHEEL_SLOTS[firstTier.slot_index];
   return {
     slotIndex: slot.index,
-    slotName: slot.name,
+    slotName: firstTier.name || slot.name,
     amount: firstTier.amount,
     isWin: true,
     isCash: true,

@@ -181,7 +181,9 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
                   const x2 = (radius - 16) * Math.cos(endAngle);
                   const y2 = (radius - 16) * Math.sin(endAngle);
 
-                  const pathData = `M 0 0 L ${x1} ${y1} A ${radius - 16} ${radius - 16} 0 0 1 ${x2} ${y2} Z`;
+                  const pathData = numSlices === 1
+                    ? `M 0 0 L 0 ${-(radius - 16)} A ${radius - 16} ${radius - 16} 0 1 1 0 ${radius - 16} A ${radius - 16} ${radius - 16} 0 1 1 0 ${-(radius - 16)} Z`
+                    : `M 0 0 L ${x1} ${y1} A ${radius - 16} ${radius - 16} 0 0 1 ${x2} ${y2} Z`;
                   const colorConfig = sliceColors[index % sliceColors.length];
                   const midAngle = (index * anglePerSlice + anglePerSlice / 2);
 
