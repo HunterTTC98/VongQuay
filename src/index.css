@@ -82,6 +82,17 @@ html { scroll-behavior: smooth; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
+@media (max-width: 380px) {
+  .navbar-reward-label, .navbar-free-spins, .navbar-lookup-label { display: none; }
+  .event-home { padding-left: .75rem; padding-right: .75rem; }
+  .campus-strip { grid-template-columns: 1fr; }
+  .campus-strip__intro { grid-column: auto; }
+  .campus-photo, .campus-photo--large { height: 210px; }
+  .welcome-hero { min-height: 500px; }
+  .welcome-hero__content { padding-right: 1rem; padding-left: 1rem; }
+  .welcome-actions .welcome-button { flex: 1 1 100%; }
+}
+
 @media (max-width: 760px) {
   .event-home { margin-bottom: 2rem; }
   .welcome-hero { min-height: 470px; border-radius: 1.35rem; }

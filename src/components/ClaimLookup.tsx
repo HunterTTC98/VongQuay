@@ -77,8 +77,8 @@ export const ClaimLookup: React.FC<ClaimLookupProps> = ({ isOpen, onClose, initi
   const statusInfo = claim ? STATUS_MAP[claim.status] || STATUS_MAP.UNSUBMITTED : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full max-h-[calc(100dvh-1.5rem)] overflow-y-auto border border-gray-200">
         <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/80">
           <div className="flex items-center gap-2">
             <Search className="w-5 h-5 text-red-600" />

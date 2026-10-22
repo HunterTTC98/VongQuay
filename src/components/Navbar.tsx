@@ -28,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="bg-gradient-to-r from-red-700 via-red-600 to-amber-600 text-white shadow-lg sticky top-0 z-40 border-b border-amber-400/40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-18">
+        <div className="flex min-h-14 sm:h-18 items-center justify-between gap-2">
           {/* Logo & School Event Title */}
           <div
             className="flex items-center space-x-2 sm:space-x-3 cursor-pointer shrink min-w-0"
@@ -75,18 +75,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               title="Tra cứu mã nhận thưởng"
             >
               <Search className="w-4 h-4 text-amber-300" />
-              <span className="hidden md:inline">Tra cứu giải</span>
-              <span className="md:hidden">Tra cứu</span>
+              <span className="navbar-lookup-label hidden md:inline">Tra cứu giải</span>
+              <span className="navbar-lookup-label md:hidden">Tra cứu</span>
             </button>
 
             {/* Student Account Status / Login */}
             {currentUser ? (
-              <div className="flex items-center bg-amber-500/30 border border-amber-300/40 rounded-lg px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm">
+              <div className="flex items-center bg-amber-500/30 border border-amber-300/40 rounded-lg px-1.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm">
                 <div className="flex flex-col text-left mr-2">
                   <span className="font-bold text-amber-100 truncate max-w-[100px] sm:max-w-[130px]">
                     {currentUser.fullName || currentUser.username}
                   </span>
-                  <span className="text-[11px] text-amber-200">
+                  <span className="navbar-free-spins text-[11px] text-amber-200">
                     {currentUser.freeSpinsRemaining} lượt quay miễn phí
                   </span>
                 </div>
@@ -104,7 +104,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="inline-flex items-center space-x-1 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-lg bg-amber-400 hover:bg-amber-300 text-red-950 font-bold text-xs sm:text-sm shadow-md active:scale-95 transition"
               >
                 <Gift className="w-4 h-4 text-red-700" />
-                <span>Nhận 3 lượt</span>
+                <span className="navbar-reward-label">Nhận 3 lượt</span>
               </button>
             )}
 

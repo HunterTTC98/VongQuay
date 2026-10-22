@@ -124,7 +124,7 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
   return (
     <div className="relative flex flex-col items-center justify-center p-3 select-none">
       {/* Outer Glow & Decorative Lights */}
-      <div className="relative w-[340px] h-[340px] sm:w-[420px] sm:h-[420px] flex items-center justify-center">
+      <div className="relative w-[min(340px,calc(100vw-3.5rem))] aspect-square sm:w-[420px] flex items-center justify-center">
         {/* Pointer at top (pointing down) */}
         <div className="absolute -top-3 z-30 flex flex-col items-center drop-shadow-xl filter">
           <div className="w-8 h-10 sm:w-10 sm:h-12 bg-gradient-to-b from-amber-300 via-amber-400 to-amber-600 clip-pointer rounded-t-sm border-2 border-white flex items-center justify-center shadow-lg">
