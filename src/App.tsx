@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   EventConfig,
   StudentUser,
@@ -14,6 +14,7 @@ import { ClaimLookup } from './components/ClaimLookup.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { EventWelcome } from './components/EventWelcome.tsx';
+import { soundManager } from './utils/audio.ts';
 import {
   Trophy,
   CheckCircle2,
@@ -57,6 +58,7 @@ export default function App() {
 
   // Wheel state
   const [isSpinning, setIsSpinning] = useState(false);
+  const spinLockRef = useRef(false);
   const [targetSlotIndex, setTargetSlotIndex] = useState<number | null>(null);
   const [spinOutcome, setSpinOutcome] = useState<{
     slotName: string;
@@ -190,7 +192,7 @@ export default function App() {
 
   // Execute Ticket Spin
   const handleSpinTicket = async () => {
-    if (isSpinning || !ticketCode.trim()) return;
+    if (spinLockRef.current || !ticketCode.trim()) return;
 
     if (event?.status !== 'ACTIVE') {
       showToast('error', 'Sự kiện hiện không ở trạng thái mở quay!');
@@ -198,6 +200,8 @@ export default function App() {
     }
 
     setTargetSlotIndex(null);
+    spinLockRef.current = true;
+    soundManager.playSpinStart();
     setIsSpinning(true);
     try {
       const headers: Record<string, string> = {
@@ -241,14 +245,16 @@ export default function App() {
         message: 'Mã vé này đã được sử dụng cho lượt quay hiện tại.',
       });
     } catch (err: any) {
+      spinLockRef.current = false;
       setIsSpinning(false);
+      soundManager.playSpinError();
       showToast('error', err.message || 'Lỗi xử lý lượt quay');
     }
   };
 
   // Execute Free Spin
   const handleSpinFree = async () => {
-    if (isSpinning) return;
+    if (spinLockRef.current) return;
     if (!currentUser || !studentToken) {
       setAuthDefaultTab('STUDENT');
       setIsAuthModalOpen(true);
@@ -261,6 +267,8 @@ export default function App() {
     }
 
     setTargetSlotIndex(null);
+    spinLockRef.current = true;
+    soundManager.playSpinStart();
     setIsSpinning(true);
     try {
       const res = await fetch('/api/spin', {
@@ -298,16 +306,20 @@ export default function App() {
       setTargetSlotIndex(outcome.slotIndex);
       setIsSpinning(true);
     } catch (err: any) {
+      spinLockRef.current = false;
       setIsSpinning(false);
+      soundManager.playSpinError();
       showToast('error', err.message || 'Lỗi quay miễn phí');
     }
   };
 
   // Execute Trial Spin
   const handleSpinTrial = async () => {
-    if (isSpinning) return;
+    if (spinLockRef.current) return;
 
     setTargetSlotIndex(null);
+    spinLockRef.current = true;
+    soundManager.playSpinStart();
     setIsSpinning(true);
     try {
       const res = await fetch('/api/spin', {
@@ -332,13 +344,16 @@ export default function App() {
       setTargetSlotIndex(outcome.slotIndex);
       setIsSpinning(true);
     } catch (err: any) {
+      spinLockRef.current = false;
       setIsSpinning(false);
+      soundManager.playSpinError();
       showToast('error', err.message || 'Lỗi quay thử');
     }
   };
 
   // Called when wheel animation physically finishes
   const handleSpinEnd = () => {
+    spinLockRef.current = false;
     setIsSpinning(false);
     fetchEventConfig(); // Refresh remaining stats
 

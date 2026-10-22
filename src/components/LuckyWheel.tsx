@@ -78,6 +78,7 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
         // Spin finished
         currentRotationRef.current = finalRot;
         setRotation(finalRot);
+        soundManager.playSpinStop();
 
         // Sound & celebratory confetti if cash won
         if (spinOutcome?.isWin && spinOutcome.amount > 0) {
@@ -125,6 +126,7 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
     <div className="relative flex flex-col items-center justify-center p-3 select-none">
       {/* Outer Glow & Decorative Lights */}
       <div className="relative w-[min(340px,calc(100vw-3.5rem))] aspect-square sm:w-[420px] flex items-center justify-center">
+        <div className={`absolute -inset-3 rounded-full bg-[radial-gradient(circle,rgba(251,191,36,0.32),rgba(220,38,38,0.12)_55%,transparent_72%)] blur-md transition-opacity duration-500 ${isSpinning ? 'opacity-100 animate-pulse' : 'opacity-70'}`} aria-hidden="true" />
         {/* Pointer at top (pointing down) */}
         <div className="absolute -top-3 z-30 flex flex-col items-center drop-shadow-xl filter">
           <div className="w-8 h-10 sm:w-10 sm:h-12 bg-gradient-to-b from-amber-300 via-amber-400 to-amber-600 clip-pointer rounded-t-sm border-2 border-white flex items-center justify-center shadow-lg">
@@ -133,9 +135,9 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
         </div>
 
         {/* Outer Wheel Golden Rim */}
-        <div className="w-full h-full rounded-full p-2.5 sm:p-3 bg-gradient-to-tr from-amber-600 via-yellow-400 to-amber-700 shadow-2xl border-4 border-amber-300/80 flex items-center justify-center">
+        <div className="relative w-full h-full rounded-full p-2.5 sm:p-3 bg-gradient-to-tr from-amber-700 via-yellow-300 to-amber-500 shadow-[0_18px_55px_rgba(120,53,15,0.42)] border-4 border-amber-200 flex items-center justify-center">
           {/* Inner dark rim */}
-          <div className="w-full h-full rounded-full bg-red-950 p-2 sm:p-2.5 shadow-inner flex items-center justify-center relative overflow-hidden">
+          <div className="w-full h-full rounded-full bg-[radial-gradient(circle_at_35%_25%,#7f1d1d,#450a0a_72%)] p-2 sm:p-2.5 shadow-[inset_0_0_18px_rgba(0,0,0,0.8)] flex items-center justify-center relative overflow-hidden">
             {/* Studded lights on rim */}
             {Array.from({ length: 16 }).map((_, i) => {
               const deg = (i * 360) / 16;
@@ -152,7 +154,7 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
 
             {/* Rotating Wheel Surface */}
             <svg
-              className="w-full h-full rounded-full transition-transform"
+              className="w-full h-full rounded-full drop-shadow-[0_3px_4px_rgba(0,0,0,0.38)]"
               viewBox={`0 0 ${size} ${size}`}
               style={{
                 transform: `rotate(${rotation}deg)`,
