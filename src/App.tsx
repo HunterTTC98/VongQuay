@@ -95,16 +95,29 @@ export default function App() {
     setTimeout(() => setToast(null), 5000);
   };
 
-  // Fetch event config from backend
-  const fetchEventConfig = async () => {
+  // Fetch event config from backend with resilient response parsing
+  const fetchEventConfig = async (retryCount = 0) => {
     try {
       const res = await fetch('/api/event');
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.warn(`[EventConfig] Non-JSON response received (status ${res.status}):`, text.slice(0, 100));
+        if (retryCount < 2) {
+          setTimeout(() => fetchEventConfig(retryCount + 1), 1000);
+          return;
+        }
+        return;
+      }
       const data = await res.json();
       if (data.success && data.event) {
         setEvent(data.event);
       }
     } catch (err) {
       console.error('Failed to load event config:', err);
+      if (retryCount < 2) {
+        setTimeout(() => fetchEventConfig(retryCount + 1), 1000);
+      }
     } finally {
       setLoadingEvent(false);
     }

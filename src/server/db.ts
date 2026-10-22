@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
+import { initializeApp, cert, getApps, type App } from 'firebase-admin/app';
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
 const CREDENTIAL_FILE = path.resolve(process.cwd(), '.initial_admin_credential');
 const CONFIG_FILE = path.resolve(process.cwd(), 'firebase-applet-config.json');
+
+export const isProduction = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
 
 /**
  * Hash password using PBKDF2 with SHA-512
@@ -419,19 +421,29 @@ export async function initDb(): Promise<FirestoreDb> {
   }
 
   const projectId = process.env.FIREBASE_PROJECT_ID || appConfig.projectId;
-  const databaseId = process.env.FIREBASE_DATABASE_ID || appConfig.firestoreDatabaseId;
+  let databaseId = process.env.FIREBASE_DATABASE_ID || appConfig.firestoreDatabaseId;
 
   // 1. Check if Firebase service account credentials are provided
   let adminApp: App | null = null;
+  let initError: Error | null = null;
+  let targetProjectId = projectId;
 
   try {
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
       console.log('[Firestore] Initializing using FIREBASE_SERVICE_ACCOUNT_KEY env var...');
       const creds = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+      targetProjectId = creds.project_id || projectId;
+      // If service account is from a user's own project and differs from applet config project,
+      // only use named database if explicitly specified via FIREBASE_DATABASE_ID
+      if (creds.project_id && appConfig.projectId && creds.project_id !== appConfig.projectId) {
+        if (!process.env.FIREBASE_DATABASE_ID) {
+          databaseId = undefined;
+        }
+      }
       adminApp = initializeApp(
         {
           credential: cert(creds),
-          projectId: creds.project_id || projectId,
+          projectId: targetProjectId,
         },
         'school-wheel-admin'
       );
@@ -451,20 +463,42 @@ export async function initDb(): Promise<FirestoreDb> {
     }
 
     if (adminApp) {
-      const rawDb = databaseId ? getAdminFirestore(adminApp, databaseId) : getAdminFirestore(adminApp);
-      // Test read to confirm permissions
-      console.log('[Firestore] Testing live Firestore connection with project:', projectId);
-      await rawDb.collection('event_config').doc('current').get();
+      let rawDb = databaseId ? getAdminFirestore(adminApp, databaseId) : getAdminFirestore(adminApp);
+      console.log(`[Firestore] Testing live Firestore connection (project: ${targetProjectId}, database: ${databaseId || '(default)'})...`);
+      try {
+        await rawDb.collection('event_config').doc('current').get();
+      } catch (testErr: any) {
+        // If a named database was requested but does not exist in this project (error 5 NOT_FOUND),
+        // gracefully fall back to the project default database "(default)"
+        if (databaseId && (testErr.code === 5 || String(testErr.message).includes('NOT_FOUND'))) {
+          console.warn(`[Firestore] Database "${databaseId}" not found in project "${targetProjectId}". Falling back to default database "(default)"...`);
+          databaseId = undefined;
+          rawDb = getAdminFirestore(adminApp);
+          await rawDb.collection('event_config').doc('current').get();
+        } else {
+          throw testErr;
+        }
+      }
       console.log('[Firestore] Successfully connected to live Google Cloud Firestore!');
       dbInstance = new RealFirestoreWrapper(rawDb);
     }
   } catch (err: any) {
-    console.warn('[Firestore] Live Firestore credentials not available or failed:', err.message);
+    initError = err;
+    console.error('[Firestore] Failed to connect to live Firestore:', err.message);
   }
 
-  // 2. Fallback to In-Memory Firestore engine for dev/preview
+  // 2. Fallback handling
   if (!dbInstance) {
-    console.log('[Firestore] Using in-memory Firestore engine with full ACID transaction support.');
+    if (isProduction) {
+      const details = initError ? ` (Nguyên nhân: ${initError.message})` : ' (Không tìm thấy biến cấu hình Firebase Service Account)';
+      throw new Error(
+        `[FATAL] Không thể kết nối tới Google Cloud Firestore trong môi trường Production/Vercel.${details}. ` +
+        `Để ngăn chặn mất mát dữ liệu giữa các function instance serverless, hệ thống không được phép chạy trên bộ nhớ RAM giả lập. ` +
+        `Vui lòng thiết lập biến môi trường FIREBASE_SERVICE_ACCOUNT_KEY (hoặc FIREBASE_CLIENT_EMAIL và FIREBASE_PRIVATE_KEY) trong Vercel Settings.`
+      );
+    }
+
+    console.log('[Firestore] [DEVELOPMENT ONLY] Using in-memory Firestore engine with full ACID transaction support.');
     dbInstance = new InMemoryFirestore();
   }
 
@@ -531,14 +565,17 @@ async function bootstrapFirestoreData(db: FirestoreDb) {
 
   if (adminSnap.empty) {
     const salt = generateSalt();
-    let initialPassword = process.env.ADMIN_INITIAL_PASSWORD;
-    let isGenerated = false;
+    const envPassword = process.env.ADMIN_INITIAL_PASSWORD?.trim();
 
-    if (!initialPassword || initialPassword.trim().length < 8) {
-      initialPassword = crypto.randomBytes(8).toString('hex');
-      isGenerated = true;
+    if (isProduction && (!envPassword || envPassword.length < 8)) {
+      throw new Error(
+        '[FATAL] Thiếu biến môi trường ADMIN_INITIAL_PASSWORD (tối thiểu 8 ký tự) trong môi trường Production/Vercel khi khởi tạo tài khoản Quản trị viên ban đầu. ' +
+        'Để đảm bảo an toàn tuyệt đối, hệ thống không tự tạo mật khẩu ngẫu nhiên in vào Function Logs của Vercel. ' +
+        'Vui lòng cấu hình ADMIN_INITIAL_PASSWORD trong Vercel Environment Variables.'
+      );
     }
 
+    const initialPassword = envPassword || 'Admin@2026School';
     const hash = hashPassword(initialPassword, salt);
     const adminId = crypto.randomUUID();
 
@@ -551,20 +588,19 @@ async function bootstrapFirestoreData(db: FirestoreDb) {
       created_at: new Date().toISOString(),
     });
 
-    try {
-      fs.writeFileSync(
-        CREDENTIAL_FILE,
-        `TÀI KHOẢN QUẢN TRỊ VIÊN BAN ĐẦU:\nTên đăng nhập: admin\nMật khẩu khởi tạo: ${initialPassword}\n(Đổi mật khẩu ngay sau khi đăng nhập lần đầu tại trang Quản Trị)\n`
-      );
-    } catch {
-      // ignore
+    if (!isProduction) {
+      try {
+        fs.writeFileSync(
+          CREDENTIAL_FILE,
+          `TÀI KHOẢN QUẢN TRỊ VIÊN BAN ĐẦU (LOCAL DEV):\nTên đăng nhập: admin\nMật khẩu khởi tạo: ${initialPassword}\n(Đổi mật khẩu sau khi đăng nhập)\n`
+        );
+      } catch {
+        // ignore
+      }
+      console.log('[SECURITY] Đã khởi tạo tài khoản quản trị viên "admin" ban đầu cho môi trường phát triển local.');
+    } else {
+      console.log('[SECURITY] Đã khởi tạo tài khoản quản trị viên "admin" an toàn trên Firestore từ biến môi trường ADMIN_INITIAL_PASSWORD.');
     }
-
-    console.log('====================================================');
-    console.log('[SECURITY] ĐÃ KHỞI TẠO TÀI KHOẢN QUẢN TRỊ VIÊN MỚI TRÊN FIRESTORE');
-    console.log(`Tên đăng nhập: admin`);
-    console.log(`Mật khẩu ${isGenerated ? '(Ngẫu nhiên bảo mật)' : '(Từ biến môi trường)'}: ${initialPassword}`);
-    console.log('Vui lòng lưu mật khẩu trên và đổi ngay trong phần Quản Trị.');
-    console.log('====================================================');
   }
 }
+

@@ -108,3 +108,53 @@ test('FREE and TRIAL spins NEVER award cash or cash slots', () => {
     assert.ok(WISH_SLOT_INDICES.includes(freeOutcome.slotIndex));
   }
 });
+
+test('Vercel rewrite query path normalization correctly formats express route', () => {
+  function normalizeUrl(query: Record<string, any>, url: string): { url: string; query: Record<string, any> } {
+    const rawPath = query?.path;
+    const q = { ...query };
+    let finalUrl = url;
+
+    if (rawPath) {
+      const subpath = Array.isArray(rawPath) ? rawPath[0] : rawPath;
+      const cleanSubpath = String(subpath).replace(/^\/+/, '');
+      delete q.path;
+
+      const queryKeys = Object.keys(q);
+      let queryString = '';
+      if (queryKeys.length > 0) {
+        const searchParams = new URLSearchParams();
+        for (const key of queryKeys) {
+          const val = q[key];
+          if (Array.isArray(val)) {
+            val.forEach((v) => searchParams.append(key, String(v)));
+          } else if (val !== undefined && val !== null) {
+            searchParams.append(key, String(val));
+          }
+        }
+        const qs = searchParams.toString();
+        if (qs) queryString = `?${qs}`;
+      }
+      finalUrl = `/api/${cleanSubpath}${queryString}`;
+    } else if (finalUrl.startsWith('/api/index')) {
+      finalUrl = finalUrl.replace(/^\/api\/index/, '/api');
+    }
+    return { url: finalUrl, query: q };
+  }
+
+  // 1. Standard API rewrite
+  const r1 = normalizeUrl({ path: 'public/config' }, '/api/index?path=public/config');
+  assert.equal(r1.url, '/api/public/config');
+  assert.equal(r1.query.path, undefined);
+
+  // 2. API rewrite with query parameters
+  const r2 = normalizeUrl({ path: 'public/claims/search', code: 'CLM-ABC-123' }, '/api/index?path=public/claims/search&code=CLM-ABC-123');
+  assert.equal(r2.url, '/api/public/claims/search?code=CLM-ABC-123');
+  assert.equal(r2.query.code, 'CLM-ABC-123');
+  assert.equal(r2.query.path, undefined);
+
+  // 3. Fallback when called as /api/index
+  const r3 = normalizeUrl({}, '/api/index');
+  assert.equal(r3.url, '/api');
+});
+

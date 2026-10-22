@@ -2,7 +2,26 @@ import crypto from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 import { getDb } from './db.ts';
 
-const JWT_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+export const isProduction = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
+
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.trim().length === 0) {
+    if (isProduction) {
+      throw new Error(
+        '[FATAL] Thiếu biến môi trường SESSION_SECRET trên môi trường Production/Vercel. ' +
+        'Trên nền tảng Serverless với nhiều instance hoạt động song song, SESSION_SECRET cố định là bắt buộc ' +
+        'để đảm bảo token đăng nhập của học sinh và quản trị viên không bị mất hiệu lực ngẫu nhiên giữa các request. ' +
+        'Vui lòng cấu hình SESSION_SECRET trong cài đặt dự án Vercel.'
+      );
+    }
+    // Stable key for local development to prevent session invalidation on server restarts
+    return 'dev-local-session-secret-school-wheel-2026-development-only';
+  }
+  return secret.trim();
+}
+
+const JWT_SECRET = getSessionSecret();
 
 export interface SessionPayload {
   userId: string;
