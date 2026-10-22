@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { performance } from 'node:perf_hooks';
 import app from '../src/server/app.ts';
 import { initDb } from '../src/server/db.ts';
 
@@ -6,7 +7,13 @@ let initialized = false;
 
 export default async function handler(req: Request, res: Response) {
   if (!initialized) {
+    const startedAt = performance.now();
     await initDb();
+    const existingTiming = res.getHeader('Server-Timing');
+    res.setHeader(
+      'Server-Timing',
+      [existingTiming, `initialization;dur=${(performance.now() - startedAt).toFixed(1)}`].filter(Boolean).join(', ')
+    );
     initialized = true;
   }
 

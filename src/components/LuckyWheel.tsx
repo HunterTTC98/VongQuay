@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { WheelSlot } from '../types/index.ts';
 import { soundManager } from '../utils/audio.ts';
 import confetti from 'canvas-confetti';
-import { Trophy, Gift, AlertCircle, Play } from 'lucide-react';
+import { Trophy, Gift, AlertCircle, LoaderCircle, Play } from 'lucide-react';
 
 interface LuckyWheelProps {
   slots: WheelSlot[];
@@ -263,6 +263,13 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
             </div>
           </div>
         </div>
+
+        {isSpinning && targetSlotIndex === null && (
+          <div className="absolute inset-2 z-40 flex flex-col items-center justify-center gap-3 rounded-full bg-slate-950/75 text-center text-white backdrop-blur-[2px]" role="status" aria-live="polite">
+            <LoaderCircle className="h-10 w-10 animate-spin text-amber-300" aria-hidden="true" />
+            <span className="max-w-[190px] px-3 text-sm font-bold">Đang xác nhận lượt quay an toàn…</span>
+          </div>
+        )}
       </div>
 
       {/* Disabled / Paused Alert if any */}

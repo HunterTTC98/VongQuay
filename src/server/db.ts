@@ -37,6 +37,7 @@ export interface FirestoreQuerySnapshot<T = any> {
 
 export interface FirestoreTransaction {
   get<T = any>(ref: FirestoreDocRef<T>): Promise<FirestoreDocSnapshot<T>>;
+  getAll<T = any>(refs: FirestoreDocRef<T>[]): Promise<FirestoreDocSnapshot<T>[]>;
   set<T = any>(ref: FirestoreDocRef<T>, data: T, options?: { merge?: boolean }): void;
   update(ref: FirestoreDocRef<any>, data: Record<string, any>): void;
   delete(ref: FirestoreDocRef<any>): void;
@@ -139,16 +140,23 @@ class RealFirestoreWrapper implements FirestoreDb {
 
   async runTransaction<R>(updateFunction: (transaction: FirestoreTransaction) => Promise<R>): Promise<R> {
     return this.rawDb.runTransaction(async (rawTx: any) => {
+      const wrapSnapshot = (snap: any): FirestoreDocSnapshot<any> => ({
+        id: snap.id,
+        exists: snap.exists,
+        data: () => snap.data(),
+      });
       const txWrapper: FirestoreTransaction = {
         get: async <T = any>(ref: FirestoreDocRef<T>) => {
           // Resolve internal doc reference
           const rawDocRef = this.rawDb.doc(ref.path);
           const snap = await rawTx.get(rawDocRef);
-          return {
-            id: snap.id,
-            exists: snap.exists,
-            data: () => snap.data(),
-          };
+          return wrapSnapshot(snap);
+        },
+        getAll: async <T = any>(refs: FirestoreDocRef<T>[]) => {
+          if (refs.length === 0) return [];
+          const rawRefs = refs.map((ref) => this.rawDb.doc(ref.path));
+          const snaps = await rawTx.getAll(...rawRefs);
+          return snaps.map(wrapSnapshot);
         },
         set: <T = any>(ref: FirestoreDocRef<T>, data: T, options?: { merge?: boolean }) => {
           const rawDocRef = this.rawDb.doc(ref.path);
@@ -325,23 +333,26 @@ class InMemoryFirestore implements FirestoreDb {
     let writePerformed = false;
     const pendingWrites: Array<() => void> = [];
 
-    const tx: FirestoreTransaction = {
-      get: async <T = any>(ref: FirestoreDocRef<T>) => {
-        if (writePerformed) {
-          throw new Error('Firestore transactions require all reads to be executed before all writes');
-        }
-        const [colName, docId] = ref.path.split('/');
-        const col = this.getCollectionData(colName);
-        const data = col.get(docId);
-        const ver = this.docVersions.get(ref.path) || 0;
-        reads.set(ref.path, { ver, data: data ? { ...data } : undefined });
+    const readDoc = async <T = any>(ref: FirestoreDocRef<T>): Promise<FirestoreDocSnapshot<T>> => {
+      if (writePerformed) {
+        throw new Error('Firestore transactions require all reads to be executed before all writes');
+      }
+      const [colName, docId] = ref.path.split('/');
+      const col = this.getCollectionData(colName);
+      const data = col.get(docId);
+      const ver = this.docVersions.get(ref.path) || 0;
+      reads.set(ref.path, { ver, data: data ? { ...data } : undefined });
 
-        return {
-          id: ref.id,
-          exists: data !== undefined,
-          data: () => (data ? ({ ...data } as T) : undefined),
-        };
-      },
+      return {
+        id: ref.id,
+        exists: data !== undefined,
+        data: () => (data ? ({ ...data } as T) : undefined),
+      };
+    };
+
+    const tx: FirestoreTransaction = {
+      get: readDoc,
+      getAll: async <T = any>(refs: FirestoreDocRef<T>[]) => Promise.all(refs.map(readDoc)),
       set: <T = any>(ref: FirestoreDocRef<T>, data: T, options?: { merge?: boolean }) => {
         writePerformed = true;
         pendingWrites.push(() => {
@@ -404,11 +415,23 @@ class InMemoryFirestore implements FirestoreDb {
 }
 
 let dbInstance: FirestoreDb | null = null;
+let dbInitialization: Promise<FirestoreDb> | null = null;
 
 /**
  * Initialize Firestore Database client (live Firebase on Vercel/Cloud or in-memory fallback)
  */
-export async function initDb(): Promise<FirestoreDb> {
+export function initDb(): Promise<FirestoreDb> {
+  if (dbInstance) return Promise.resolve(dbInstance);
+  if (!dbInitialization) {
+    dbInitialization = initializeDb().catch((err) => {
+      dbInitialization = null;
+      throw err;
+    });
+  }
+  return dbInitialization;
+}
+
+async function initializeDb(): Promise<FirestoreDb> {
   if (dbInstance) return dbInstance;
 
   let appConfig: any = {};

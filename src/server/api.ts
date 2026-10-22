@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import crypto from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import {
   getDb,
   hashPassword,
@@ -175,23 +176,14 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
     return;
   }
 
+  let transactionStartedAt: number | null = null;
   try {
     const db = await getDb();
 
     // Execute spin entirely inside Firestore runTransaction
+    transactionStartedAt = performance.now();
     const result = await db.runTransaction(async (tx) => {
       const eventRef = db.collection('event_config').doc('current');
-      const eventSnap = await tx.get(eventRef);
-      const event = eventSnap.exists ? eventSnap.data() : null;
-
-      if (!event || event.status !== 'ACTIVE') {
-        const statusMsg = event?.status === 'PAUSED' ? 'Sự kiện đang tạm dừng' : 'Sự kiện đã kết thúc';
-        throw new Error(`${statusMsg}. Ban tổ chức hiện không mở lượt quay!`);
-      }
-
-      const totalBudget = Number(event.total_budget || 0);
-      const usedBudget = Number(event.used_budget || 0);
-      const remainingBudget = Math.max(0, totalBudget - usedBudget);
 
       // 1. Handle FREE SPIN (Requires verified student token)
       if (spinType === 'FREE') {
@@ -200,7 +192,13 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
         }
 
         const userRef = db.collection('users').doc(req.student.id);
-        const userSnap = await tx.get(userRef);
+        const [eventSnap, userSnap] = await tx.getAll([eventRef, userRef]);
+        const event = eventSnap.exists ? eventSnap.data() : null;
+
+        if (!event || event.status !== 'ACTIVE') {
+          const statusMsg = event?.status === 'PAUSED' ? 'Sự kiện đang tạm dừng' : 'Sự kiện đã kết thúc';
+          throw new Error(`${statusMsg}. Ban tổ chức hiện không mở lượt quay!`);
+        }
 
         if (!userSnap.exists) {
           throw new Error('Tài khoản học sinh không tồn tại');
@@ -260,9 +258,27 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
 
         const cleanCode = ticketCode.trim().toUpperCase();
         const ticketRef = db.collection('tickets').doc(cleanCode);
+        const prizeTierRefs = [0, 1, 2, 3, 4, 5, 6, 7].map((slotIdx) =>
+          db.collection('prize_tiers').doc(`slot_${slotIdx}`)
+        );
 
-        // Firestore Transaction invariant: ALL READS FIRST
-        const ticketSnap = await tx.get(ticketRef);
+        // Read event, ticket and prize inventory together, before any writes.
+        const [eventSnap, ticketSnap, ...prizeTierSnaps] = await tx.getAll([
+          eventRef,
+          ticketRef,
+          ...prizeTierRefs,
+        ]);
+        const event = eventSnap.exists ? eventSnap.data() : null;
+
+        if (!event || event.status !== 'ACTIVE') {
+          const statusMsg = event?.status === 'PAUSED' ? 'Sự kiện đang tạm dừng' : 'Sự kiện đã kết thúc';
+          throw new Error(`${statusMsg}. Ban tổ chức hiện không mở lượt quay!`);
+        }
+
+        const totalBudget = Number(event.total_budget || 0);
+        const usedBudget = Number(event.used_budget || 0);
+        const remainingBudget = Math.max(0, totalBudget - usedBudget);
+
         if (!ticketSnap.exists) {
           throw new Error('Mã vé không tồn tại trong hệ thống');
         }
@@ -274,13 +290,6 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
         if (ticket.status === 'REVOKED') {
           throw new Error('Mã vé này đã bị thu hồi bởi ban tổ chức');
         }
-
-        // Read all 8 prize tiers inside the transaction
-        const prizeTierSnaps = await Promise.all(
-          [0, 1, 2, 3, 4, 5, 6, 7].map((slotIdx) =>
-            tx.get(db.collection('prize_tiers').doc(`slot_${slotIdx}`))
-          )
-        );
 
         const availableCashPrizes: AvailablePrizeTier[] = [];
         const prizeDataMap = new Map<number, any>();
@@ -396,8 +405,23 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
       throw new Error('Yêu cầu không được hỗ trợ');
     });
 
+    const transactionDuration = performance.now() - transactionStartedAt;
+    const existingTiming = res.getHeader('Server-Timing');
+    res.setHeader(
+      'Server-Timing',
+      [existingTiming, `transaction;dur=${transactionDuration.toFixed(1)}`].filter(Boolean).join(', ')
+    );
     res.json(result);
   } catch (err: any) {
+    if (transactionStartedAt !== null) {
+      const existingTiming = res.getHeader('Server-Timing');
+      res.setHeader(
+        'Server-Timing',
+        [existingTiming, `transaction;dur=${(performance.now() - transactionStartedAt).toFixed(1)}`]
+          .filter(Boolean)
+          .join(', ')
+      );
+    }
     res.status(400).json({ success: false, error: err.message || 'Lỗi khi xử lý lượt quay' });
   }
 });

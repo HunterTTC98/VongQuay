@@ -197,6 +197,8 @@ export default function App() {
       return;
     }
 
+    setTargetSlotIndex(null);
+    setIsSpinning(true);
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -239,6 +241,7 @@ export default function App() {
         message: 'Mã vé này đã được sử dụng cho lượt quay hiện tại.',
       });
     } catch (err: any) {
+      setIsSpinning(false);
       showToast('error', err.message || 'Lỗi xử lý lượt quay');
     }
   };
@@ -257,6 +260,8 @@ export default function App() {
       return;
     }
 
+    setTargetSlotIndex(null);
+    setIsSpinning(true);
     try {
       const res = await fetch('/api/spin', {
         method: 'POST',
@@ -293,6 +298,7 @@ export default function App() {
       setTargetSlotIndex(outcome.slotIndex);
       setIsSpinning(true);
     } catch (err: any) {
+      setIsSpinning(false);
       showToast('error', err.message || 'Lỗi quay miễn phí');
     }
   };
@@ -301,6 +307,8 @@ export default function App() {
   const handleSpinTrial = async () => {
     if (isSpinning) return;
 
+    setTargetSlotIndex(null);
+    setIsSpinning(true);
     try {
       const res = await fetch('/api/spin', {
         method: 'POST',
@@ -324,6 +332,7 @@ export default function App() {
       setTargetSlotIndex(outcome.slotIndex);
       setIsSpinning(true);
     } catch (err: any) {
+      setIsSpinning(false);
       showToast('error', err.message || 'Lỗi quay thử');
     }
   };
