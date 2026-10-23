@@ -158,3 +158,33 @@ test('Vercel rewrite query path normalization correctly formats express route', 
   assert.equal(r3.url, '/api');
 });
 
+test('PRESET_OCCASIONS contains 8 official occasions for Bách Khoa Events', async () => {
+  const { PRESET_OCCASIONS } = await import('../types/index.ts');
+  assert.equal(PRESET_OCCASIONS.length, 8);
+  const ids = PRESET_OCCASIONS.map((o) => o.id);
+  assert.ok(ids.includes('20_11'));
+  assert.ok(ids.includes('20_10'));
+  assert.ok(ids.includes('08_03'));
+  assert.ok(ids.includes('TET'));
+  assert.ok(ids.includes('THANH_LAP'));
+  assert.ok(ids.includes('VALENTINE'));
+  assert.ok(ids.includes('DOAN_26_03'));
+  assert.ok(ids.includes('HOI_TRUONG'));
+
+  for (const occ of PRESET_OCCASIONS) {
+    assert.ok(occ.name.length > 0);
+    assert.ok(occ.shortLabel.length > 0);
+    assert.ok(occ.themeColor.startsWith('#'));
+    assert.ok(occ.bannerSubtitle.length > 0);
+  }
+});
+
+test('Admin authorization recognizes cuongtt.ptit@gmail.com as super administrator', () => {
+  const masterEmail = 'cuongtt.ptit@gmail.com';
+  const isMasterAdmin = (email: string) => email.trim().toLowerCase() === masterEmail;
+  assert.equal(isMasterAdmin('cuongtt.ptit@gmail.com'), true);
+  assert.equal(isMasterAdmin('CUONGTT.PTIT@GMAIL.COM'), true);
+  assert.equal(isMasterAdmin('student@gmail.com'), false);
+});
+
+

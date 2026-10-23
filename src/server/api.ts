@@ -249,7 +249,10 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
         const nowStr = new Date().toISOString();
 
         // Transaction Writes
-        tx.update(userRef, { free_spins_remaining: newFreeSpins });
+        tx.update(userRef, {
+          free_spins_remaining: newFreeSpins,
+          total_spins: Number(studentUser.total_spins || 0) + 1,
+        });
         tx.set(db.collection('spins').doc(spinId), {
           id: spinId,
           user_id: req.student.id,
@@ -292,12 +295,14 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
           db.collection('prize_tiers').doc(`slot_${slotIdx}`)
         );
 
-        // Read event, ticket and prize inventory together, before any writes.
-        const [eventSnap, ticketSnap, ...prizeTierSnaps] = await tx.getAll([
-          eventRef,
-          ticketRef,
-          ...prizeTierRefs,
-        ]);
+        // Read event, ticket, prize inventory and student user together before any writes
+        const userRef = req.student ? db.collection('users').doc(req.student.id) : null;
+        const refsToGet = [eventRef, ticketRef, ...prizeTierRefs];
+        if (userRef) refsToGet.push(userRef);
+
+        const [eventSnap, ticketSnap, ...remainingSnaps] = await tx.getAll(refsToGet);
+        const prizeTierSnaps = remainingSnaps.slice(0, 8);
+        const userSnap = userRef ? remainingSnaps[8] : null;
         const event = eventSnap.exists ? eventSnap.data() : null;
 
         if (!event || event.status !== 'ACTIVE') {
@@ -391,6 +396,7 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
             claim_code: claimCode,
             spin_id: spinId,
             ticket_code: cleanCode,
+            user_id: req.student ? req.student.id : null,
             prize_amount: outcome.amount,
             student_name: '',
             student_class: '',
@@ -419,6 +425,13 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
           claim_code: claimCode,
           created_at: nowStr,
         });
+
+        // 4. Update user's total spin counter if authenticated
+        if (userRef && userSnap && userSnap.exists) {
+          tx.update(userRef, {
+            total_spins: Number(userSnap.data()?.total_spins || 0) + 1,
+          });
+        }
 
         return {
           success: true,
@@ -574,6 +587,251 @@ router.post('/claims/:code/submit', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     res.status(400).json({ success: false, error: err.message || 'Lỗi khi gửi thông tin' });
+  }
+});
+
+/**
+ * Firebase Auth Synchronization & Session Issuance
+ * Accepts verified Firebase user (from Google 1-click or Email/Password),
+ * syncs users/{uid} in Firestore, checks admin privileges, and returns unified tokens.
+ */
+router.post('/auth/firebase-session', async (req: Request, res: Response) => {
+  try {
+    const { uid, email, displayName, photoUrl, studentClass } = req.body;
+    if (!uid || typeof uid !== 'string') {
+      res.status(400).json({ success: false, error: 'Thiếu định danh người dùng Firebase (UID)' });
+      return;
+    }
+
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanUid = uid.trim();
+    const db = await getDb();
+    const nowStr = new Date().toISOString();
+
+    // 1. Check Admin privileges
+    let isAdmin = false;
+    let adminRole = 'SUPER_ADMIN';
+
+    if (cleanEmail === 'cuongtt.ptit@gmail.com') {
+      isAdmin = true;
+    } else {
+      const adminDocSnap = await db.collection('admins').doc(cleanUid).get();
+      if (adminDocSnap.exists) {
+        isAdmin = true;
+        adminRole = adminDocSnap.data()?.role || 'ADMIN';
+      } else if (cleanEmail) {
+        const adminEmailSnap = await db.collection('admins').where('email', '==', cleanEmail).get();
+        if (!adminEmailSnap.empty) {
+          isAdmin = true;
+          adminRole = adminEmailSnap.docs[0].data()?.role || 'ADMIN';
+        }
+      }
+    }
+
+    // If recognized as admin, ensure document exists at admins/{cleanUid} for direct fast lookup
+    if (isAdmin) {
+      const adminRef = db.collection('admins').doc(cleanUid);
+      const adminSnap = await adminRef.get();
+      if (!adminSnap.exists) {
+        await adminRef.set({
+          id: cleanUid,
+          username: cleanEmail || cleanUid,
+          email: cleanEmail,
+          role: adminRole,
+          created_at: nowStr,
+        });
+      }
+    }
+
+    // 2. Fetch or Create User profile at users/{cleanUid}
+    const userRef = db.collection('users').doc(cleanUid);
+    const userSnap = await userRef.get();
+    let userData: any = null;
+
+    if (!userSnap.exists) {
+      // New user registration - grant 3 free spins
+      userData = {
+        id: cleanUid,
+        username: cleanEmail || cleanUid,
+        email: cleanEmail,
+        full_name: displayName?.trim() || cleanEmail.split('@')[0] || 'Học viên Bách Khoa',
+        student_class: studentClass?.trim() || '',
+        photo_url: photoUrl || '',
+        free_spins_remaining: 3,
+        total_spins: 0,
+        created_at: nowStr,
+      };
+      await userRef.set(userData);
+    } else {
+      userData = userSnap.data()!;
+      // Update missing optional info if provided
+      const updates: Record<string, any> = {};
+      if (cleanEmail && !userData.email) updates.email = cleanEmail;
+      if (photoUrl && !userData.photo_url) updates.photo_url = photoUrl;
+      if (displayName && (!userData.full_name || userData.full_name === userData.username)) {
+        updates.full_name = displayName.trim();
+      }
+      if (Object.keys(updates).length > 0) {
+        await userRef.update(updates);
+        userData = { ...userData, ...updates };
+      }
+    }
+
+    // 3. Issue Session Tokens
+    const studentToken = createToken({
+      userId: cleanUid,
+      username: cleanEmail || cleanUid,
+      role: 'STUDENT',
+    });
+
+    const adminToken = isAdmin
+      ? createToken({
+          userId: cleanUid,
+          username: cleanEmail || cleanUid,
+          role: 'ADMIN',
+        })
+      : null;
+
+    res.json({
+      success: true,
+      token: studentToken,
+      adminToken,
+      isAdmin,
+      user: {
+        id: cleanUid,
+        username: userData.username,
+        email: userData.email,
+        fullName: userData.full_name,
+        studentClass: userData.student_class,
+        photoUrl: userData.photo_url,
+        freeSpinsRemaining: Number(userData.free_spins_remaining ?? 3),
+        totalSpins: Number(userData.total_spins || 0),
+      },
+      admin: isAdmin
+        ? {
+            id: cleanUid,
+            username: cleanEmail || cleanUid,
+            email: cleanEmail,
+            role: adminRole,
+          }
+        : null,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * User Profile: View free spins, claimed tickets, spin history and prize claims
+ */
+router.get('/user/profile', requireStudent, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const student = req.student!;
+    const db = await getDb();
+
+    // 1. Get User Profile
+    const userSnap = await db.collection('users').doc(student.id).get();
+    const userData = userSnap.exists ? userSnap.data()! : null;
+
+    // 2. Get User's Tickets
+    const ownersSnap = await db.collection('ticket_owners').where('user_id', '==', student.id).get();
+    const ticketCodes = ownersSnap.docs.map((d) => d.data()?.ticket_code).filter(Boolean);
+
+    let tickets: any[] = [];
+    if (ticketCodes.length > 0) {
+      for (const code of ticketCodes) {
+        const tSnap = await db.collection('tickets').doc(code).get();
+        if (tSnap.exists) {
+          tickets.push(tSnap.data()!);
+        }
+      }
+    }
+
+    // 3. Get User's Spins
+    const spinsSnap = await db.collection('spins').where('user_id', '==', student.id).get();
+    const spins = spinsSnap.docs
+      .map((d) => {
+        const s = d.data()!;
+        return {
+          id: d.id,
+          spinType: s.spin_type,
+          ticketCode: s.ticket_code,
+          prizeAmount: Number(s.prize_amount || 0),
+          prizeName: s.prize_name,
+          slotIndex: Number(s.slot_index || 0),
+          isWin: Number(s.is_win) === 1,
+          claimCode: s.claim_code,
+          createdAt: s.created_at,
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // 4. Get User's Claims
+    const allClaimsSnap = await db.collection('claims').get();
+    const userClaims = allClaimsSnap.docs
+      .map((d) => d.data()!)
+      .filter((c) => c.user_id === student.id || (c.ticket_code && ticketCodes.includes(c.ticket_code)))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    // 5. Check if also admin
+    const email = userData?.email || student.username;
+    let isAdmin = email === 'cuongtt.ptit@gmail.com';
+    if (!isAdmin) {
+      const adminSnap = await db.collection('admins').doc(student.id).get();
+      isAdmin = adminSnap.exists;
+    }
+
+    res.json({
+      success: true,
+      profile: {
+        user: {
+          id: student.id,
+          username: userData?.username || student.username,
+          email: userData?.email || '',
+          fullName: userData?.full_name || student.fullName || '',
+          studentClass: userData?.student_class || student.studentClass || '',
+          photoUrl: userData?.photo_url || '',
+          freeSpinsRemaining: Number(userData?.free_spins_remaining ?? student.freeSpinsRemaining ?? 0),
+          totalSpins: Number(userData?.total_spins || 0),
+        },
+        tickets,
+        spins,
+        claims: userClaims,
+        isAdmin,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * User Profile Update (Full Name & Student Class)
+ */
+router.post('/user/profile/update', requireStudent, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const student = req.student!;
+    const { fullName, studentClass } = req.body;
+    const db = await getDb();
+    const userRef = db.collection('users').doc(student.id);
+
+    const updates: Record<string, any> = {};
+    if (typeof fullName === 'string') updates.full_name = fullName.trim();
+    if (typeof studentClass === 'string') updates.student_class = studentClass.trim();
+
+    await userRef.update(updates);
+
+    res.json({
+      success: true,
+      message: 'Cập nhật thông tin thành công!',
+      user: {
+        id: student.id,
+        fullName: updates.full_name ?? student.fullName,
+        studentClass: updates.student_class ?? student.studentClass,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -1357,6 +1615,79 @@ router.get('/admin/audit-logs', requireAdmin, async (_req: AuthenticatedRequest,
     const logsSnap = await db.collection('audit_logs').orderBy('timestamp', 'desc').limit(100).get();
     const logs = logsSnap.docs.map((d) => d.data()!);
     res.json({ success: true, logs });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Admin: List All Admins
+ */
+router.get('/admin/admins', requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    const snap = await db.collection('admins').get();
+    const admins = snap.docs.map((d) => {
+      const data = d.data()!;
+      return {
+        id: d.id,
+        username: data.username,
+        email: data.email || '',
+        role: data.role || 'ADMIN',
+        createdAt: data.created_at,
+      };
+    });
+    res.json({ success: true, admins });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Admin: Add New Admin Account by Email or Username
+ */
+router.post('/admin/admins/add', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { email, username, role } = req.body;
+    if (!email && !username) {
+      res.status(400).json({ success: false, error: 'Vui lòng cung cấp email hoặc tài khoản quản trị viên mới' });
+      return;
+    }
+
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanUser = (username || cleanEmail).trim();
+    const cleanRole = role === 'SUPER_ADMIN' ? 'SUPER_ADMIN' : 'ADMIN';
+
+    const db = await getDb();
+    const adminId = crypto.randomUUID();
+    const nowStr = new Date().toISOString();
+
+    await db.collection('admins').doc(adminId).set({
+      id: adminId,
+      username: cleanUser,
+      email: cleanEmail,
+      role: cleanRole,
+      created_at: nowStr,
+    });
+
+    await logAudit(
+      req.admin!.username,
+      'ADD_ADMIN',
+      `Thêm Quản trị viên mới: ${cleanEmail || cleanUser} (Vai trò: ${cleanRole})`,
+      req.ip || '127.0.0.1'
+    );
+
+    res.json({
+      success: true,
+      message: `Đã cấp quyền Quản trị viên cho ${cleanEmail || cleanUser} thành công!`,
+      admin: {
+        id: adminId,
+        username: cleanUser,
+        email: cleanEmail,
+        role: cleanRole,
+        createdAt: nowStr,
+      },
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

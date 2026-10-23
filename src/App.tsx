@@ -14,6 +14,8 @@ import { ClaimLookup } from './components/ClaimLookup.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { EventWelcome } from './components/EventWelcome.tsx';
+import { UserProfileModal } from './components/UserProfileModal.tsx';
+import { logoutFirebase } from './firebase.ts';
 import { soundManager } from './utils/audio.ts';
 import {
   Trophy,
@@ -88,6 +90,7 @@ export default function App() {
   const [lookupInitialCode, setLookupInitialCode] = useState('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authDefaultTab, setAuthDefaultTab] = useState<'STUDENT' | 'ADMIN'>('STUDENT');
+  const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
 
   const showToast = (type: 'info' | 'success' | 'error', message: string) => {
     setToast({ type, message });
@@ -399,12 +402,18 @@ export default function App() {
     showToast('success', 'Đăng nhập Ban Quản Trị thành công!');
   };
 
-  const handleLogoutUser = () => {
+  const handleLogoutUser = async () => {
+    try {
+      await logoutFirebase();
+    } catch {
+      // ignore
+    }
     setCurrentUser(null);
     setStudentToken(null);
+    setIsUserProfileOpen(false);
     localStorage.removeItem('school_wheel_student');
     localStorage.removeItem('school_wheel_student_token');
-    showToast('info', 'Đã đăng xuất tài khoản học sinh.');
+    showToast('info', 'Đã đăng xuất tài khoản.');
   };
 
   const handleLogoutAdmin = () => {
@@ -448,6 +457,7 @@ export default function App() {
           setLookupInitialCode('');
           setIsLookupModalOpen(true);
         }}
+        onOpenUserProfile={() => setIsUserProfileOpen(true)}
         onToggleAdminView={() => setIsAdminView(!isAdminView)}
         isAdminView={isAdminView}
         onLogoutUser={handleLogoutUser}
@@ -611,6 +621,33 @@ export default function App() {
         defaultTab={authDefaultTab}
         onStudentLoginSuccess={handleStudentLoginSuccess}
         onAdminLoginSuccess={handleAdminLoginSuccess}
+      />
+
+      {/* User Profile Modal (Tickets, Spins, Claims & Account) */}
+      <UserProfileModal
+        isOpen={isUserProfileOpen}
+        onClose={() => setIsUserProfileOpen(false)}
+        token={studentToken}
+        currentUser={currentUser}
+        isAdmin={!!currentAdmin}
+        onProfileUpdated={(updated) => {
+          setCurrentUser(updated);
+          localStorage.setItem('school_wheel_student', JSON.stringify(updated));
+        }}
+        onSelectTicketToSpin={(code) => {
+          setTicketCode(code);
+          document.getElementById('ticket-section')?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        onOpenClaimModal={(claimCode, amt) => {
+          setSpinOutcome({
+            slotName: `${amt.toLocaleString('vi-VN')}đ`,
+            amount: amt,
+            isWin: true,
+            claimCode,
+          });
+          setIsClaimModalOpen(true);
+        }}
+        onSwitchToAdmin={() => setIsAdminView(true)}
       />
     </div>
   );

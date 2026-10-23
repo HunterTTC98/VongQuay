@@ -9,6 +9,7 @@ export interface WheelSlotDef {
   isCash: boolean;
   color: string;
   textColor: string;
+  isEnabled?: boolean;
 }
 
 export const WHEEL_SLOTS: WheelSlotDef[] = [

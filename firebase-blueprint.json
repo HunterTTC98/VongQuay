@@ -103,14 +103,17 @@
       "type": "object",
       "properties": {
         "username": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string" },
         "password_hash": { "type": "string" },
         "password_salt": { "type": "string" },
         "full_name": { "type": "string", "maxLength": 256 },
         "student_class": { "type": "string", "maxLength": 128 },
+        "photo_url": { "type": "string" },
         "free_spins_remaining": { "type": "number" },
+        "total_spins": { "type": "number" },
         "created_at": { "type": "string" }
       },
-      "required": ["username", "password_hash", "free_spins_remaining", "created_at"]
+      "required": ["username", "free_spins_remaining", "created_at"]
     },
     "admin": {
       "title": "Admin",
@@ -118,12 +121,13 @@
       "type": "object",
       "properties": {
         "username": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string" },
         "password_hash": { "type": "string" },
         "password_salt": { "type": "string" },
         "role": { "type": "string" },
         "created_at": { "type": "string" }
       },
-      "required": ["username", "password_hash", "role", "created_at"]
+      "required": ["username", "role", "created_at"]
     },
     "audit_log": {
       "title": "Audit Log",

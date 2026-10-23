@@ -1,6 +1,6 @@
 {
-  "name": "Vòng Quay May Mắn Sự Kiện Trường Học",
-  "description": "Hệ thống vòng quay may mắn chính thức cho sự kiện trường học, quản lý vé số dự thưởng, tồn kho giải thưởng tiền mặt và tra cứu nhận thưởng an toàn.",
+  "name": "Bách Khoa Events - Bách Khoa Sầm Sơn",
+  "description": "Hệ thống sự kiện, lời chúc và vòng quay may mắn của Trường Trung cấp Công nghiệp Bách Khoa Sầm Sơn.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -6,6 +6,38 @@ service cloud.firestore {
     // claim submissions, student logins, and admin actions) MUST go through the backend API server
     // which executes Firestore atomic transactions with server-authoritative validations.
     // Direct client writes and untrusted SDK tampering are strictly blocked by default.
+
+    // Allow connectivity health test check as required by Firebase skill
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Public event config read-only
+    match /event_config/{eventId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Public prize tiers read-only
+    match /prize_tiers/{tierId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Authenticated users can read their own profile
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Authenticated admins can verify admin existence
+    match /admins/{adminId} {
+      allow read: if request.auth != null && (request.auth.uid == adminId || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+      allow write: if false;
+    }
+
+    // Default deny-all catch-all rule
     match /{document=**} {
       allow read, write: if false;
     }

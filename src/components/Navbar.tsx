@@ -8,6 +8,7 @@ interface NavbarProps {
   currentAdmin: AdminUser | null;
   onOpenAuth: (defaultTab?: 'STUDENT' | 'ADMIN') => void;
   onOpenLookup: () => void;
+  onOpenUserProfile?: () => void;
   onToggleAdminView: () => void;
   isAdminView: boolean;
   onLogoutUser: () => void;
@@ -20,6 +21,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentAdmin,
   onOpenAuth,
   onOpenLookup,
+  onOpenUserProfile,
   onToggleAdminView,
   isAdminView,
   onLogoutUser,
@@ -61,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-amber-100 hidden md:block font-medium truncate">
-                {event?.name || 'Sự kiện trường học chính thức 2026'}
+                {event?.name || 'Trường Trung cấp Công nghiệp Bách Khoa Sầm Sơn'}
               </p>
             </div>
           </div>
@@ -81,19 +83,37 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Student Account Status / Login */}
             {currentUser ? (
-              <div className="flex items-center bg-amber-500/30 border border-amber-300/40 rounded-lg px-1.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm">
-                <div className="flex flex-col text-left mr-2">
-                  <span className="font-bold text-amber-100 truncate max-w-[100px] sm:max-w-[130px]">
-                    {currentUser.fullName || currentUser.username}
-                  </span>
-                  <span className="navbar-free-spins text-[11px] text-amber-200">
-                    {currentUser.freeSpinsRemaining} lượt quay miễn phí
-                  </span>
-                </div>
+              <div className="flex items-center bg-amber-500/30 border border-amber-300/40 rounded-lg p-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm">
+                <button
+                  type="button"
+                  onClick={onOpenUserProfile}
+                  className="flex items-center text-left mr-2 group hover:opacity-90 transition"
+                  title="Mở hồ sơ cá nhân, lịch sử quay & mã vé"
+                >
+                  {currentUser.photoUrl ? (
+                    <img
+                      src={currentUser.photoUrl}
+                      alt={currentUser.fullName || currentUser.username}
+                      className="w-7 h-7 rounded-full border border-amber-300 mr-2 object-cover shrink-0"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-amber-400 text-red-900 font-black flex items-center justify-center mr-2 text-xs shrink-0">
+                      {(currentUser.fullName || currentUser.username || 'U').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex flex-col">
+                    <span className="font-bold text-amber-100 truncate max-w-[90px] sm:max-w-[130px] group-hover:underline">
+                      {currentUser.fullName || currentUser.username}
+                    </span>
+                    <span className="navbar-free-spins text-[10px] sm:text-[11px] text-amber-200">
+                      {currentUser.freeSpinsRemaining} lượt quay free
+                    </span>
+                  </div>
+                </button>
                 <button
                   onClick={onLogoutUser}
                   className="p-1 hover:bg-white/20 rounded text-amber-200 hover:text-white"
-                  title="Đăng xuất tài khoản học sinh"
+                  title="Đăng xuất tài khoản"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                 </button>

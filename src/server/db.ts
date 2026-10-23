@@ -544,8 +544,8 @@ async function bootstrapFirestoreData(db: FirestoreDb) {
   const eventSnap = await eventRef.get();
   if (!eventSnap.exists) {
     await eventRef.set({
-      name: 'Ngày Hội Trường Học 2026 - Vòng Quay May Mắn',
-      occasion: 'HOI_TRUONG_2026',
+      name: 'Bách Khoa Events - Trường Trung cấp Công nghiệp Bách Khoa Sầm Sơn',
+      occasion: '20_11',
       status: 'ACTIVE',
       total_budget: 3000000,
       used_budget: 0,
@@ -624,6 +624,21 @@ async function bootstrapFirestoreData(db: FirestoreDb) {
     } else {
       console.log('[SECURITY] Đã khởi tạo tài khoản quản trị viên "admin" an toàn trên Firestore từ biến môi trường ADMIN_INITIAL_PASSWORD.');
     }
+  }
+
+  // 4. Master Admin Initialization for runtime email
+  const bootstrapEmail = 'cuongtt.ptit@gmail.com';
+  const emailAdminSnap = await db.collection('admins').where('email', '==', bootstrapEmail).get();
+  if (emailAdminSnap.empty) {
+    const emailAdminId = 'admin_cuongtt_ptit';
+    await db.collection('admins').doc(emailAdminId).set({
+      id: emailAdminId,
+      username: 'cuongtt.ptit',
+      email: bootstrapEmail,
+      role: 'SUPER_ADMIN',
+      created_at: new Date().toISOString(),
+    });
+    console.log(`[SECURITY] Đã cấu hình quyền Quản trị viên cho tài khoản email: ${bootstrapEmail}`);
   }
 }
 

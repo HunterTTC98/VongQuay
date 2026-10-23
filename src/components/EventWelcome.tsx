@@ -16,22 +16,22 @@ const wishes = [
   (name: string, occasion: string) => `Gửi ${name} lời chúc ấm áp nhất nhân ${occasion}. Chúc bạn luôn rạng rỡ, gặp nhiều may mắn và có một mùa lễ đáng nhớ tại Bách Khoa Events!`,
 ];
 
-function occasionLabel(occasion?: string) {
-  if (!occasion) return 'ngày hội của trường';
-  const normalized = occasion.toLowerCase();
-  if (normalized.includes('20_10') || normalized.includes('20-10')) return 'Ngày Phụ nữ Việt Nam 20/10';
-  if (normalized.includes('20_11') || normalized.includes('20-11')) return 'Ngày Nhà giáo Việt Nam 20/11';
-  if (normalized.includes('08_03') || normalized.includes('8-3')) return 'Ngày Quốc tế Phụ nữ 8/3';
-  if (normalized.includes('tet')) return 'dịp Tết';
-  if (normalized.includes('valentine')) return 'Valentine';
-  return 'ngày hội của trường';
+import { PRESET_OCCASIONS } from '../types/index.ts';
+
+function getOccasionInfo(occasionId?: string) {
+  if (!occasionId) return PRESET_OCCASIONS[0];
+  const matched = PRESET_OCCASIONS.find(
+    (o) => o.id === occasionId || occasionId.toLowerCase().includes(o.id.toLowerCase())
+  );
+  return matched || PRESET_OCCASIONS[0];
 }
 
 export function EventWelcome({ event, onOpenLookup }: EventWelcomeProps) {
   const [recipient, setRecipient] = useState('bạn');
   const [wishIndex, setWishIndex] = useState(0);
   const [copied, setCopied] = useState(false);
-  const occasion = useMemo(() => occasionLabel(event?.occasion), [event?.occasion]);
+  const activeOccasion = useMemo(() => getOccasionInfo(event?.occasion), [event?.occasion]);
+  const occasion = activeOccasion.name;
   const message = wishes[wishIndex](recipient.trim() || 'bạn', occasion);
 
   const scrollToWheel = () => document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });

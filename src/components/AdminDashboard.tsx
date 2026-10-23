@@ -7,6 +7,7 @@ import {
   ClaimStatus,
   AuditLog,
   AdminUser,
+  PRESET_OCCASIONS,
 } from '../types/index.ts';
 import { STATUS_MAP } from './ClaimLookup.tsx';
 import {
@@ -29,6 +30,9 @@ import {
   FileText,
   Sliders,
   Send,
+  Users,
+  Sparkles,
+  Calendar,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -42,12 +46,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   adminUser,
   onRefreshPublicEvent,
 }) => {
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PRIZES' | 'TICKETS' | 'CLAIMS' | 'LOGS' | 'SECURITY'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PRIZES' | 'TICKETS' | 'CLAIMS' | 'ADMINS' | 'LOGS' | 'SECURITY'>('OVERVIEW');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
   // Stats & Config
   const [stats, setStats] = useState<any>(null);
+  const [currentOccasion, setCurrentOccasion] = useState('20_11');
+
+  // Admins List
+  const [adminsList, setAdminsList] = useState<any[]>([]);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<'ADMIN' | 'SUPER_ADMIN'>('ADMIN');
+  const [addingAdmin, setAddingAdmin] = useState(false);
 
   // Prizes
   const [prizes, setPrizes] = useState<PrizeTier[]>([]);
@@ -100,6 +111,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         if (data.stats.event) {
           setEventName(data.stats.event.name);
           setTotalBudget(data.stats.event.total_budget);
+          if (data.stats.event.occasion) {
+            setCurrentOccasion(data.stats.event.occasion);
+          }
         }
         if (data.stats.prizeTiers) {
           setPrizes(data.stats.prizeTiers);
@@ -107,6 +121,49 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } catch {
       showNotice('error', 'Không thể tải thống kê');
+    }
+  };
+
+  const fetchAdmins = async () => {
+    try {
+      const res = await fetch('/api/admin/admins', { headers: authHeaders });
+      const data = await res.json();
+      if (data.success) {
+        setAdminsList(data.admins);
+      }
+    } catch {
+      showNotice('error', 'Không thể tải danh sách Quản trị viên');
+    }
+  };
+
+  const handleAddAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminEmail.trim()) {
+      showNotice('error', 'Vui lòng nhập email hoặc tên tài khoản');
+      return;
+    }
+    setAddingAdmin(true);
+    try {
+      const res = await fetch('/api/admin/admins/add', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          email: newAdminEmail.trim(),
+          role: newAdminRole,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotice('success', data.message);
+        setNewAdminEmail('');
+        fetchAdmins();
+      } else {
+        showNotice('error', data.error);
+      }
+    } catch {
+      showNotice('error', 'Lỗi khi thêm Quản trị viên');
+    } finally {
+      setAddingAdmin(false);
     }
   };
 
@@ -193,7 +250,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const res = await fetch('/api/admin/event/config', {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({ name: eventName, totalBudget: Number(totalBudget) }),
+        body: JSON.stringify({
+          name: eventName,
+          totalBudget: Number(totalBudget),
+          occasion: currentOccasion,
+        }),
       });
       const data = await res.json();
       if (data.success) {
@@ -510,6 +571,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </button>
 
         <button
+          onClick={() => {
+            setActiveTab('ADMINS');
+            fetchAdmins();
+          }}
+          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
+            activeTab === 'ADMINS'
+              ? 'bg-red-600 text-white shadow-md'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Ban Quản Trị</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('LOGS')}
           className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
             activeTab === 'LOGS'
@@ -600,17 +676,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           </div>
 
-          {/* Quick Config Form */}
-          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200 shadow-sm">
-            <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-red-600" />
-              <span>Cấu Hình Tên & Ngân Sách Sự Kiện</span>
-            </h3>
+          {/* Quick Config Form & Multi-occasion Selector */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-red-600" />
+                  <span>Bộ Chọn Dịp Lễ & Cấu Hình Sự Kiện</span>
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Thay đổi chủ đề dịp lễ Bách Khoa đang diễn ra, giao diện lễ hội và ngân sách sự kiện.
+                </p>
+              </div>
+            </div>
 
-            <form onSubmit={handleUpdateEventConfig} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Predefined Occasions Selector Grid */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-red-600" />
+                <span>Chọn Dịp Lễ Hoạt Động (8 Dịp Lễ Chuẩn Bách Khoa Events)</span>
+              </label>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {PRESET_OCCASIONS.map((occ) => {
+                  const isSelected = currentOccasion === occ.id;
+                  return (
+                    <button
+                      key={occ.id}
+                      type="button"
+                      onClick={() => {
+                        setCurrentOccasion(occ.id);
+                        setEventName(`Bách Khoa Events - ${occ.name}`);
+                      }}
+                      className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-red-600 bg-red-50/70 shadow-sm ring-2 ring-red-500/20'
+                          : 'border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span
+                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                            isSelected ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {occ.tag}
+                        </span>
+                        {isSelected && <CheckCircle2 className="w-4 h-4 text-red-600" />}
+                      </div>
+                      <div className="font-bold text-xs text-gray-900 leading-snug line-clamp-2">
+                        {occ.shortLabel}
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1 line-clamp-1">{occ.name}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdateEventConfig} className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Tên Sự Kiện
+                  Tên Hiển Thị Sự Kiện
                 </label>
                 <input
                   type="text"
@@ -636,9 +763,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div className="sm:col-span-3 flex justify-end">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md transition"
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md transition flex items-center gap-2"
                 >
-                  Lưu Thay Đổi
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Lưu Dịp Lễ & Ngân Sách</span>
                 </button>
               </div>
             </form>
@@ -1363,6 +1491,153 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   • Tra cứu mã nhận thưởng công khai được giới hạn tần suất (Rate Limiting) để chống dò mã tự động, đồng thời che họ tên, lớp và số điện thoại (<code className="bg-white px-1 py-0.5 rounded text-purple-700">091****678</code>) để bảo vệ quyền riêng tư của học sinh.
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: ADMINS MANAGEMENT (Firebase Auth RBAC) */}
+      {activeTab === 'ADMINS' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Explanation Banner */}
+          <div className="bg-gradient-to-r from-stone-900 to-amber-950 text-white rounded-2xl p-5 border border-amber-500/30 shadow-md">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-amber-500 text-stone-950 rounded-xl shrink-0 mt-0.5">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-amber-200">
+                  Phân Quyền Quản Trị Viên Qua Firebase Auth (RBAC)
+                </h3>
+                <p className="text-xs text-stone-300 mt-1 leading-relaxed">
+                  Hệ thống kiểm tra danh sách tài khoản được ủy quyền trong bộ sưu tập <code className="bg-stone-800 px-1 py-0.5 rounded text-amber-300 font-mono">admins/</code> trên Firestore. Thầy cô hoặc ban tổ chức chỉ cần đăng nhập bằng tài khoản Google hoặc Email của mình là hệ thống sẽ tự động cấp quyền truy cập toàn bộ trang quản trị mà không cần ghi nhớ mật khẩu riêng.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Add Admin Form */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200 shadow-sm">
+            <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-red-600" />
+              <span>Cấp Quyền Quản Trị Viên Mới</span>
+            </h4>
+
+            <form onSubmit={handleAddAdmin} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Địa Chỉ Email Google / Tên Tài Khoản
+                </label>
+                <input
+                  type="text"
+                  placeholder="vi_du@gmail.com hoặc username"
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Vai Trò Phân Quyền
+                </label>
+                <select
+                  value={newAdminRole}
+                  onChange={(e) => setNewAdminRole(e.target.value as any)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="ADMIN">Quản Trị Viên (ADMIN)</option>
+                  <option value="SUPER_ADMIN">Quản Trị Tối Cao (SUPER_ADMIN)</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="submit"
+                  disabled={addingAdmin}
+                  className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition flex items-center justify-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{addingAdmin ? 'Đang thêm...' : 'Cấp Quyền'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Admins Table */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h4 className="font-bold text-gray-900 text-sm">
+                  Danh Sách Quản Trị Viên Được Cấp Phép ({adminsList.length})
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Các tài khoản sau có quyền điều chỉnh giải thưởng, duyệt claim tiền mặt và phát hành vé sự kiện.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchAdmins}
+                className="p-2 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition"
+                title="Làm mới"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-200 text-gray-500 text-xs uppercase font-bold">
+                    <th className="py-2.5 px-3">Tài Khoản / Email</th>
+                    <th className="py-2.5 px-3">Vai Trò</th>
+                    <th className="py-2.5 px-3">Định Danh UID</th>
+                    <th className="py-2.5 px-3">Ngày Cấp Quyền</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {adminsList.map((adm) => (
+                    <tr key={adm.id} className="hover:bg-gray-50/80 transition">
+                      <td className="py-3 px-3 font-bold text-gray-900">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-red-100 text-red-800 flex items-center justify-center font-black text-xs">
+                            {(adm.username || adm.email || 'A').charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div>{adm.email || adm.username}</div>
+                            {adm.email && adm.username !== adm.email && (
+                              <div className="text-[11px] text-gray-500 font-normal">Tên: {adm.username}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          adm.role === 'SUPER_ADMIN'
+                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}>
+                          {adm.role}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-mono text-xs text-gray-500 max-w-[150px] truncate">
+                        {adm.id}
+                      </td>
+                      <td className="py-3 px-3 text-xs text-gray-500">
+                        {adm.createdAt ? new Date(adm.createdAt).toLocaleDateString('vi-VN') : 'Mặc định'}
+                      </td>
+                    </tr>
+                  ))}
+                  {adminsList.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-gray-400">
+                        Đang tải danh sách quản trị viên...
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
