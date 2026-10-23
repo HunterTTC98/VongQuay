@@ -1,12 +1,12 @@
 {
   "projectId": "vongquay-5ad49",
-  "appId": "1:756882975856:web:21e27d632eab6717e198b5",
+  "appId": "1:756882975856:web:d615cae1f593d8aae198b5",
   "apiKey": "AIzaSyAMWG_NsTDT3VZM8USznDYQBD01qpT1s0k",
   "authDomain": "vongquay-5ad49.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-vngquaymaymnskin-a23e33c2-22a1-4bd2-af1f-90f28bac5fd2",
+  "firestoreDatabaseId": "(default)",
   "storageBucket": "vongquay-5ad49.firebasestorage.app",
   "messagingSenderId": "756882975856",
-  "measurementId": "",
-  "oAuthClientId": "756882975856-3au3n241r4r6i9v82fqo9m97b5kp6jda.apps.googleusercontent.com",
+  "measurementId": "G-B9G95H8WF3",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

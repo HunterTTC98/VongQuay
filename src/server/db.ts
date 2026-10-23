@@ -486,7 +486,7 @@ async function initializeDb(): Promise<FirestoreDb> {
     }
 
     if (adminApp) {
-      let rawDb = databaseId ? getAdminFirestore(adminApp, databaseId) : getAdminFirestore(adminApp);
+      let rawDb = databaseId && databaseId !== '(default)' ? getAdminFirestore(adminApp, databaseId) : getAdminFirestore(adminApp);
       console.log(`[Firestore] Testing live Firestore connection (project: ${targetProjectId}, database: ${databaseId || '(default)'})...`);
       try {
         await rawDb.collection('event_config').doc('current').get();
