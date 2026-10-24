@@ -30,6 +30,10 @@ export interface EventConfig {
   totalCashRemaining: number;
   slots: WheelSlot[];
   prizes: PrizeTier[];
+  startTime?: string | null;
+  endTime?: string | null;
+  isAutoScheduled?: boolean;
+  scheduledReason?: string;
 }
 
 export interface Ticket {

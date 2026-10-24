@@ -1,139 +1,132 @@
-import { useMemo, useState } from 'react';
-import { ArrowDown, Copy, Gift, Heart, Printer, Share2, Sparkles } from 'lucide-react';
-import type { EventConfig } from '../types/index.ts';
-import heroImage from '../assets/images/hero_teachers_day.jpg';
-import campusImage from '../assets/images/bachkhoa_campus.jpg';
-import teachersImage from '../assets/images/bachkhoa_teachers.jpg';
+import React from 'react';
+import { EventConfig, StudentUser, PRESET_OCCASIONS } from '../types/index.ts';
+import { Sparkles, LogIn, Gift, Trophy, Heart, Search, Disc } from 'lucide-react';
 
-type EventWelcomeProps = {
+interface EventWelcomeProps {
   event: EventConfig | null;
-  onOpenLookup: () => void;
-};
+  currentUser: StudentUser | null;
+  onOpenAuth: () => void;
+  activeSection: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP';
+  onSelectSection: (section: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP') => void;
+}
 
-const wishes = [
-  (name: string, occasion: string) => `Chúc ${name} một ${occasion} thật vui, nhiều tiếng cười và ngập tràn những điều tốt đẹp. Mong mỗi ngày đến trường đều mang lại thêm niềm vui và cảm hứng mới!`,
-  (name: string, occasion: string) => `Nhân ${occasion}, chúc ${name} luôn mạnh khỏe, bình an và tự tin theo đuổi những điều mình yêu thích. Chúc bạn có thật nhiều kỷ niệm đẹp bên thầy cô và bạn bè!`,
-  (name: string, occasion: string) => `Gửi ${name} lời chúc ấm áp nhất nhân ${occasion}. Chúc bạn luôn rạng rỡ, gặp nhiều may mắn và có một mùa lễ đáng nhớ tại Bách Khoa Events!`,
-];
-
-import { PRESET_OCCASIONS } from '../types/index.ts';
-
-function getOccasionInfo(occasionId?: string) {
-  if (!occasionId) return PRESET_OCCASIONS[0];
+function getOccasionLabel(occasionId?: string) {
+  if (!occasionId) return '20/10';
   const matched = PRESET_OCCASIONS.find(
     (o) => o.id === occasionId || occasionId.toLowerCase().includes(o.id.toLowerCase())
   );
-  return matched || PRESET_OCCASIONS[0];
+  return matched ? matched.shortLabel : 'Sự Kiện';
 }
 
-export function EventWelcome({ event, onOpenLookup }: EventWelcomeProps) {
-  const [recipient, setRecipient] = useState('bạn');
-  const [wishIndex, setWishIndex] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const activeOccasion = useMemo(() => getOccasionInfo(event?.occasion), [event?.occasion]);
-  const occasion = activeOccasion.name;
-  const message = wishes[wishIndex](recipient.trim() || 'bạn', occasion);
-
-  const scrollToWheel = () => document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
-
-  const copyWish = async () => {
-    try {
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setCopied(false);
-    }
-  };
-
-  const shareWish = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `Lời chúc ${occasion}`, text: message });
-        return;
-      } catch {
-        // Keep the generated wish available if the share sheet is dismissed.
-      }
-    }
-    await copyWish();
-  };
+export const EventWelcome: React.FC<EventWelcomeProps> = ({
+  event,
+  currentUser,
+  onOpenAuth,
+  activeSection,
+  onSelectSection,
+}) => {
+  const occasionLabel = getOccasionLabel(event?.occasion);
 
   return (
-    <div className="event-home">
-      <section className="welcome-hero" aria-labelledby="welcome-title">
-        <img className="welcome-hero__image" src={heroImage} alt="Thầy cô và học sinh cùng đón ngày hội tại trường" />
-        <div className="welcome-hero__shade" />
-        <div className="welcome-hero__content">
-          <p className="welcome-eyebrow"><Sparkles size={15} aria-hidden="true" /> Bách Khoa Events · Sầm Sơn</p>
-          <p className="welcome-school">Trường Trung cấp Công nghiệp Bách Khoa Sầm Sơn</p>
-          <h1 id="welcome-title">Cùng tạo nên<br /><span>một ngày hội đáng nhớ</span></h1>
-          <p className="welcome-description">
-            {event?.name || 'Gửi lời chúc chân thành, lưu giữ khoảnh khắc đẹp và tham gia vòng quay may mắn cùng thầy cô, bạn bè.'}
-          </p>
-          <div className="welcome-actions">
-            <button type="button" className="welcome-button welcome-button--primary" onClick={scrollToWheel}>
-              <Gift size={17} aria-hidden="true" /> Tham gia vòng quay
-            </button>
-            <button type="button" className="welcome-button welcome-button--glass" onClick={() => document.getElementById('greeting-studio')?.scrollIntoView({ behavior: 'smooth' })}>
-              <Heart size={17} aria-hidden="true" /> Viết lời chúc
-            </button>
-          </div>
-          <div className="welcome-status" aria-live="polite">
-            <span className={`status-dot status-dot--${event?.status === 'ACTIVE' ? 'active' : event?.status === 'PAUSED' ? 'paused' : 'ended'}`} />
-            {event?.status === 'ACTIVE' ? 'Sự kiện đang diễn ra' : event?.status === 'PAUSED' ? 'Sự kiện đang tạm dừng' : event?.status === 'ENDED' ? 'Sự kiện đã kết thúc' : 'Đang tải thông tin sự kiện'}
-            {event && <span className="welcome-status__divider">·</span>}
-            {event && <span>{event.totalCashRemaining} phần quà tiền mặt còn lại</span>}
-          </div>
-        </div>
-        <div className="welcome-hero__caption"><span>Gắn kết · Tri ân · Chia sẻ</span><span>Thanh Hóa, Việt Nam</span></div>
-      </section>
-
-      <section className="campus-strip" aria-label="Khoảnh khắc tại Bách Khoa">
-        <div className="campus-strip__intro">
-          <span className="section-kicker">Mái trường thân thương</span>
-          <h2>Mỗi dịp lễ là một<br />kỷ niệm đẹp</h2>
-          <p>Cùng lưu giữ những khoảnh khắc đáng nhớ của thầy cô và học sinh Bách Khoa.</p>
-          <button type="button" className="text-action" onClick={scrollToWheel}>Khám phá sự kiện <ArrowDown size={15} aria-hidden="true" /></button>
-        </div>
-        <figure className="campus-photo campus-photo--large">
-          <img src={campusImage} alt="Khuôn viên Trường Bách Khoa trong ngày hội" loading="lazy" />
-          <figcaption>Chung một mái trường, cùng viết nên kỷ niệm</figcaption>
-        </figure>
-        <figure className="campus-photo campus-photo--small">
-          <img src={teachersImage} alt="Thầy cô và học sinh Bách Khoa" loading="lazy" />
-          <figcaption>Tri ân những người truyền cảm hứng</figcaption>
-        </figure>
-      </section>
-
-      <section className="greeting-studio" id="greeting-studio" aria-labelledby="greeting-title">
-        <div className="greeting-studio__copy">
-          <span className="section-kicker">Một lời nhắn, nhiều yêu thương</span>
-          <h2 id="greeting-title">Gửi ai đó một lời chúc thật đẹp</h2>
-          <p>Chọn người nhận, tạo lời chúc tiếng Việt và sao chép hoặc chia sẻ ngay. Không cần đăng nhập.</p>
-          <label className="recipient-label" htmlFor="greeting-recipient">Lời chúc gửi đến</label>
-          <input id="greeting-recipient" className="recipient-input" value={recipient} maxLength={60} onChange={(e) => setRecipient(e.target.value)} placeholder="Tên người nhận hoặc cách xưng hô" />
-          <button type="button" className="text-action greeting-refresh" onClick={() => setWishIndex((wishIndex + 1) % wishes.length)}>
-            <Sparkles size={15} aria-hidden="true" /> Tạo lời chúc khác
-          </button>
-        </div>
-        <article className="wish-card" aria-live="polite">
-          <div className="wish-card__ornament" aria-hidden="true">✿</div>
-          <span className="wish-card__label">Thân gửi {recipient.trim() || 'bạn'}</span>
-          <p>{message}</p>
-          <span className="wish-card__signature">Thương mến, Bách Khoa Events</span>
-          <div className="wish-card__actions">
-            <button type="button" onClick={copyWish}><Copy size={15} aria-hidden="true" /> {copied ? 'Đã sao chép' : 'Sao chép lời chúc'}</button>
-            <button type="button" onClick={shareWish}><Share2 size={15} aria-hidden="true" /> Chia sẻ</button>
-            <button type="button" onClick={() => window.print()}><Printer size={15} aria-hidden="true" /> Lưu / in thiệp</button>
-          </div>
-          {copied && <span className="sr-only" role="status">Đã sao chép lời chúc vào bộ nhớ tạm.</span>}
-        </article>
-      </section>
-
-      <div className="event-home__lookup">
-        <div><span className="section-kicker">Đã có mã nhận thưởng?</span><p>Tra cứu tiến độ nhận quà bằng mã claim của bạn.</p></div>
-        <button type="button" className="welcome-button welcome-button--primary" onClick={onOpenLookup}>Tra cứu giải thưởng <ArrowDown size={15} aria-hidden="true" /></button>
+    <div className="w-full text-center pt-2 pb-6 max-w-4xl mx-auto px-4 select-none">
+      {/* 1. Golden Eyebrow Badge matching reference image */}
+      <div className="event-eyebrow inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#3d1928] border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-extrabold shadow-lg mb-4 transition-colors">
+        <span>⚡</span>
+        <span className="uppercase tracking-wider font-['Montserrat',sans-serif]">
+          VÒNG QUAY MAY MẮN {occasionLabel} · LÌ XÌ VÍ MOMO
+        </span>
       </div>
+
+      {/* 2. Main Title in Elegant Display Serif matching reference image */}
+      <h1 className="event-hero-title text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-rose-100 to-amber-200 tracking-tight font-serif leading-tight drop-shadow-md mb-3 transition-colors">
+        Vòng Quay Hồi Hộp – Rinh Quà Yêu Thương
+      </h1>
+
+      {/* 3. Concise Subtitle with highlights matching reference image */}
+      <p className="event-subtitle text-sm sm:text-base text-rose-200/90 max-w-2xl mx-auto leading-relaxed mb-5 font-medium transition-colors">
+        Chương trình tri ân tại{' '}
+        <strong className="text-amber-300 font-bold">
+          Trường TC Công nghiệp Bách Khoa Sầm Sơn
+        </strong>
+        . Cơ hội nhận lì xì MoMo từ{' '}
+        <strong className="text-pink-400 font-extrabold">10.000đ đến 100.000đ</strong> cùng
+        muôn vàn lời chúc ý nghĩa!
+      </p>
+
+      {/* 4. Quick Action Callout Pill Bar matching reference image */}
+      <div className="event-callout inline-flex flex-wrap items-center justify-center gap-3 px-5 py-2.5 rounded-full bg-[#341126]/90 border border-rose-500/30 text-xs sm:text-sm text-rose-100 shadow-xl mb-6 backdrop-blur-md transition-colors">
+        <span className="text-rose-400 font-bold">ⓘ</span>
+        <span>
+          Có thể{' '}
+          <strong className="text-white font-bold">Đăng nhập nhận 3 lượt quay</strong> hoặc{' '}
+          <strong className="text-white font-bold">Nhập mã vé dự thưởng</strong> để quay ngay!
+        </span>
+        {!currentUser && (
+          <button
+            type="button"
+            onClick={onOpenAuth}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-red-950 font-black rounded-full text-xs shadow-md transition active:scale-95 flex items-center gap-1.5"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Đăng nhập</span>
+          </button>
+        )}
+      </div>
+
+      {/* 5. Section Switcher Bar (Eliminates long scrolling) */}
+      <nav aria-label="Điều hướng nhanh" className="flex items-center justify-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          type="button"
+          onClick={() => onSelectSection('WHEEL')}
+          className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            activeSection === 'WHEEL'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
+              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+          }`}
+        >
+          <Disc className="w-4 h-4" />
+          <span>Vòng Quay May Mắn</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSelectSection('CARDS')}
+          className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            activeSection === 'CARDS'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
+              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+          }`}
+        >
+          <Heart className="w-4 h-4" />
+          <span>Studio Tạo Thiệp</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSelectSection('PRIZES')}
+          className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            activeSection === 'PRIZES'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
+              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+          }`}
+        >
+          <Trophy className="w-4 h-4" />
+          <span>8 Ô Giải Thưởng</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSelectSection('LOOKUP')}
+          className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            activeSection === 'LOOKUP'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
+              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+          }`}
+        >
+          <Search className="w-4 h-4" />
+          <span>Tra Cứu Giải</span>
+        </button>
+      </nav>
     </div>
   );
-}
+};

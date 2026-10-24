@@ -33,6 +33,9 @@ import {
   Users,
   Sparkles,
   Calendar,
+  Clock,
+  Download,
+  Gift,
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -47,6 +50,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onRefreshPublicEvent,
 }) => {
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'PRIZES' | 'TICKETS' | 'CLAIMS' | 'ADMINS' | 'LOGS' | 'SECURITY'>('OVERVIEW');
+  const [activeCategory, setActiveCategory] = useState<'CONFIG' | 'REWARDS' | 'SYSTEM'>('CONFIG');
+
+  const handleSelectCategory = (cat: 'CONFIG' | 'REWARDS' | 'SYSTEM') => {
+    setActiveCategory(cat);
+    if (cat === 'CONFIG') setActiveTab('OVERVIEW');
+    else if (cat === 'REWARDS') setActiveTab('CLAIMS');
+    else if (cat === 'SYSTEM') {
+      setActiveTab('ADMINS');
+      fetchAdmins();
+    }
+  };
+
+  const handleSelectTab = (tab: 'OVERVIEW' | 'PRIZES' | 'TICKETS' | 'CLAIMS' | 'ADMINS' | 'LOGS' | 'SECURITY') => {
+    setActiveTab(tab);
+    if (tab === 'OVERVIEW' || tab === 'PRIZES') setActiveCategory('CONFIG');
+    else if (tab === 'CLAIMS' || tab === 'TICKETS') setActiveCategory('REWARDS');
+    else setActiveCategory('SYSTEM');
+    if (tab === 'ADMINS') fetchAdmins();
+  };
+
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
@@ -59,6 +82,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'ADMIN' | 'SUPER_ADMIN'>('ADMIN');
   const [addingAdmin, setAddingAdmin] = useState(false);
+  const [isSavingAll, setIsSavingAll] = useState(false);
 
   // Prizes
   const [prizes, setPrizes] = useState<PrizeTier[]>([]);
@@ -91,6 +115,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Event Config Form
   const [eventName, setEventName] = useState('');
   const [totalBudget, setTotalBudget] = useState(3000000);
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [isAutoScheduled, setIsAutoScheduled] = useState(false);
 
   const authHeaders = {
     'Content-Type': 'application/json',
@@ -114,6 +141,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           if (data.stats.event.occasion) {
             setCurrentOccasion(data.stats.event.occasion);
           }
+          setStartTime(data.stats.event.start_time || '');
+          setEndTime(data.stats.event.end_time || '');
+          setIsAutoScheduled(Boolean(data.stats.event.is_auto_scheduled));
         }
         if (data.stats.prizeTiers) {
           setPrizes(data.stats.prizeTiers);
@@ -164,6 +194,96 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showNotice('error', 'Lỗi khi thêm Quản trị viên');
     } finally {
       setAddingAdmin(false);
+    }
+  };
+
+  const handleUpdateAdminRole = async (adminId: string, newRole: string) => {
+    try {
+      const res = await fetch('/api/admin/admins/update-role', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ id: adminId, role: newRole }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotice('success', data.message);
+        fetchAdmins();
+      } else {
+        showNotice('error', data.error);
+      }
+    } catch {
+      showNotice('error', 'Lỗi khi cập nhật vai trò quản trị viên');
+    }
+  };
+
+  const handleDeleteAdmin = async (adminId: string, adminIdentifier: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn thu hồi quyền quản trị của "${adminIdentifier}" không?`)) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/admin/admins/delete', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ id: adminId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotice('success', data.message);
+        fetchAdmins();
+      } else {
+        showNotice('error', data.error);
+      }
+    } catch {
+      showNotice('error', 'Lỗi khi xóa quản trị viên');
+    }
+  };
+
+  const handleSaveAllConfig = async () => {
+    setIsSavingAll(true);
+    try {
+      const prizesPayload = prizes.map((p) => {
+        const nameEl = document.getElementById(`name-${p.slot_index}`) as HTMLInputElement;
+        const enabledEl = document.getElementById(`enabled-${p.slot_index}`) as HTMLInputElement;
+        const remEl = document.getElementById(`rem-${p.slot_index}`) as HTMLInputElement;
+        const totEl = document.getElementById(`tot-${p.slot_index}`) as HTMLInputElement;
+        const weightEl = document.getElementById(`weight-${p.slot_index}`) as HTMLInputElement;
+
+        return {
+          slot_index: p.slot_index,
+          name: nameEl?.value ? nameEl.value.trim() : p.name,
+          is_enabled: enabledEl ? enabledEl.checked : p.is_enabled,
+          remaining_quantity: remEl && remEl.value !== '' ? Number(remEl.value) : p.remaining_quantity,
+          total_quantity: totEl && totEl.value !== '' ? Number(totEl.value) : p.total_quantity,
+          probability_weight: weightEl && weightEl.value !== '' ? Number(weightEl.value) : p.probability_weight,
+        };
+      });
+
+      const res = await fetch('/api/admin/save-all-config', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          name: eventName,
+          totalBudget: Number(totalBudget),
+          occasion: currentOccasion,
+          startTime: startTime || null,
+          endTime: endTime || null,
+          isAutoScheduled,
+          prizes: prizesPayload,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showNotice('success', data.message || 'Đã lưu toàn bộ cấu hình thành công!');
+        fetchStats();
+        onRefreshPublicEvent();
+      } else {
+        showNotice('error', data.error || 'Lỗi lưu toàn bộ cấu hình');
+      }
+    } catch {
+      showNotice('error', 'Lỗi kết nối khi lưu toàn bộ cấu hình');
+    } finally {
+      setIsSavingAll(false);
     }
   };
 
@@ -254,6 +374,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           name: eventName,
           totalBudget: Number(totalBudget),
           occasion: currentOccasion,
+          startTime: startTime || null,
+          endTime: endTime || null,
+          isAutoScheduled,
         }),
       });
       const data = await res.json();
@@ -427,8 +550,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     window.location.href = `/api/admin/export/tickets?token=${adminToken}`;
   };
 
-  const handleExportClaimsCSV = () => {
-    window.location.href = `/api/admin/export/claims?token=${adminToken}`;
+  const handleExportClaimsCSV = async (mode: 'ACCOUNTING' | 'ALL' = 'ACCOUNTING') => {
+    try {
+      const statusParam = mode === 'ACCOUNTING' ? 'PAID,PENDING_PAYOUT' : 'ALL';
+      const res = await fetch(`/api/admin/claims/export?status=${statusParam}`, {
+        headers: authHeaders,
+      });
+      if (!res.ok) throw new Error('Không thể tải file báo cáo');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download =
+        mode === 'ACCOUNTING'
+          ? `BaoCao_DoiSoat_KeToan_PAID_PENDING_${dateStr}.csv`
+          : `BaoCao_ToanBo_TraoThuong_${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showNotice(
+        'success',
+        mode === 'ACCOUNTING'
+          ? 'Đã tải file đối soát Kế toán (PAID & PENDING_PAYOUT)!'
+          : 'Đã tải toàn bộ danh sách trao thưởng!'
+      );
+    } catch {
+      showNotice('error', 'Lỗi khi xuất file báo cáo Excel/CSV');
+    }
   };
 
   const remainingBudget = stats?.event
@@ -520,94 +670,155 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* Tabs Navigation */}
-      <div className="flex overflow-x-auto pb-2 gap-2 mb-6 border-b border-gray-200 text-xs sm:text-sm font-bold no-scrollbar">
-        <button
-          onClick={() => setActiveTab('OVERVIEW')}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'OVERVIEW'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <DollarSign className="w-4 h-4" />
-          <span>Tổng Quan & Ngân Sách</span>
-        </button>
+      {/* Multi-Level Hierarchical Navigation Menu (Eliminates Horizontal Scrolling) */}
+      <div className="mb-6 space-y-2.5">
+        {/* Level 1: Category Pillars */}
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={() => handleSelectCategory('CONFIG')}
+            className={`p-2.5 sm:p-3 rounded-2xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 shadow-sm ${
+              activeCategory === 'CONFIG'
+                ? 'bg-gradient-to-r from-red-700 to-rose-700 text-white border-red-800 shadow-md ring-2 ring-red-400/40'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Sliders className="w-4 h-4 shrink-0" />
+            <span className="text-xs sm:text-sm font-black font-['Montserrat',sans-serif]">Cấu Hình & Giải</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('PRIZES')}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'PRIZES'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <Trophy className="w-4 h-4" />
-          <span>Tồn Kho & Giải Thưởng</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => handleSelectCategory('REWARDS')}
+            className={`p-2.5 sm:p-3 rounded-2xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 shadow-sm ${
+              activeCategory === 'REWARDS'
+                ? 'bg-gradient-to-r from-red-700 to-rose-700 text-white border-red-800 shadow-md ring-2 ring-red-400/40'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Gift className="w-4 h-4 shrink-0" />
+            <span className="text-xs sm:text-sm font-black font-['Montserrat',sans-serif]">Vé & Trao Thưởng</span>
+          </button>
 
-        <button
-          onClick={() => setActiveTab('TICKETS')}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'TICKETS'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <TicketIcon className="w-4 h-4" />
-          <span>Quản Lý Vé Dự Thưởng</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => handleSelectCategory('SYSTEM')}
+            className={`p-2.5 sm:p-3 rounded-2xl border text-center transition flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 shadow-sm ${
+              activeCategory === 'SYSTEM'
+                ? 'bg-gradient-to-r from-red-700 to-rose-700 text-white border-red-800 shadow-md ring-2 ring-red-400/40'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <Shield className="w-4 h-4 shrink-0" />
+            <span className="text-xs sm:text-sm font-black font-['Montserrat',sans-serif]">Phân Quyền & Log</span>
+          </button>
+        </div>
 
-        <button
-          onClick={() => setActiveTab('CLAIMS')}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'CLAIMS'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Yêu Cầu Nhận Thưởng</span>
-        </button>
+        {/* Level 2: Sub-Level Tabs (No Horizontal Scroll) */}
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-gray-100/90 p-2 rounded-2xl border border-gray-200 shadow-inner">
+          {activeCategory === 'CONFIG' && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('OVERVIEW')}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                  activeTab === 'OVERVIEW'
+                    ? 'bg-white text-red-700 shadow-sm border border-gray-200 ring-1 ring-red-100'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <DollarSign className="w-4 h-4 text-amber-600" />
+                <span>Tổng Quan, Ngân Sách & Hẹn Giờ</span>
+              </button>
 
-        <button
-          onClick={() => {
-            setActiveTab('ADMINS');
-            fetchAdmins();
-          }}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'ADMINS'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Ban Quản Trị</span>
-        </button>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('PRIZES')}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                  activeTab === 'PRIZES'
+                    ? 'bg-white text-red-700 shadow-sm border border-gray-200 ring-1 ring-red-100'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <Trophy className="w-4 h-4 text-amber-600" />
+                <span>Cơ Cấu 8 Ô Giải Thưởng</span>
+              </button>
+            </>
+          )}
 
-        <button
-          onClick={() => setActiveTab('LOGS')}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'LOGS'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <History className="w-4 h-4" />
-          <span>Nhật Ký Hệ Thống</span>
-        </button>
+          {activeCategory === 'REWARDS' && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('CLAIMS')}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                  activeTab === 'CLAIMS'
+                    ? 'bg-white text-red-700 shadow-sm border border-gray-200 ring-1 ring-red-100'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-emerald-600" />
+                <span>Duyệt Trao Thưởng & Xuất Báo Cáo</span>
+              </button>
 
-        <button
-          onClick={() => setActiveTab('SECURITY')}
-          className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 shrink-0 ${
-            activeTab === 'SECURITY'
-              ? 'bg-red-600 text-white shadow-md'
-              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-        >
-          <Lock className="w-4 h-4" />
-          <span>Bảo Mật & Vận Hành</span>
-        </button>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('TICKETS')}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                  activeTab === 'TICKETS'
+                    ? 'bg-white text-red-700 shadow-sm border border-gray-200 ring-1 ring-red-100'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <TicketIcon className="w-4 h-4 text-blue-600" />
+                <span>Quản Lý Vé Dự Thưởng</span>
+              </button>
+            </>
+          )}
+
+          {activeCategory === 'SYSTEM' && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSelectTab('ADMINS')}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                  activeTab === 'ADMINS'
+                    ? 'bg-white text-red-700 shadow-sm border border-gray-200 ring-1 ring-red-100'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <Users className="w-4 h-4 text-indigo-600" />
+                <span>Ban Quản Trị & Phân Quyền</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectTab('LOGS')}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                  activeTab === 'LOGS'
+                    ? 'bg-white text-red-700 shadow-sm border border-gray-200 ring-1 ring-red-100'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <History className="w-4 h-4 text-purple-600" />
+                <span>Nhật Ký Thao Tác</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectTab('SECURITY')}
+                className={`flex-1 sm:flex-none px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                  activeTab === 'SECURITY'
+                    ? 'bg-white text-red-700 shadow-sm border border-gray-200 ring-1 ring-red-100'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <Lock className="w-4 h-4 text-rose-600" />
+                <span>Đổi Mật Khẩu & Bảo Mật</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* TAB 1: OVERVIEW & BUDGET */}
@@ -690,14 +901,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Predefined Occasions Selector Grid */}
+            {/* Predefined Occasions Selector Grid with Mobile Overflow Protection */}
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-2 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-red-600" />
                 <span>Chọn Dịp Lễ Hoạt Động (8 Dịp Lễ Chuẩn Bách Khoa Events)</span>
               </label>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              {/* Mobile Dropdown Selector (<= 640px) */}
+              <div className="sm:hidden mb-3">
+                <select
+                  value={currentOccasion}
+                  onChange={(e) => {
+                    const occId = e.target.value;
+                    setCurrentOccasion(occId);
+                    const found = PRESET_OCCASIONS.find((o) => o.id === occId);
+                    if (found) setEventName(`Bách Khoa Events - ${found.name}`);
+                  }}
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 truncate focus:ring-2 focus:ring-red-500 outline-none shadow-sm cursor-pointer"
+                >
+                  {PRESET_OCCASIONS.map((occ) => (
+                    <option key={occ.id} value={occ.id} className="text-gray-900 bg-white">
+                      [{occ.tag}] {occ.shortLabel} – {occ.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Desktop / Tablet Grid */}
+              <div className="hidden sm:grid sm:grid-cols-4 gap-2.5">
                 {PRESET_OCCASIONS.map((occ) => {
                   const isSelected = currentOccasion === occ.id;
                   return (
@@ -760,13 +992,73 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-3 flex justify-end">
+              {/* Event Scheduling Section */}
+              <div className="sm:col-span-3 p-4 rounded-2xl bg-amber-50/70 border border-amber-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-700" />
+                    <span className="text-xs font-bold text-gray-900 uppercase tracking-wide">
+                      Cơ Chế Khóa Tự Động Theo Giờ (Event Scheduling)
+                    </span>
+                  </div>
+                  <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isAutoScheduled}
+                      onChange={(e) => setIsAutoScheduled(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span className="text-xs font-bold text-amber-900">Bật hẹn giờ tự động</span>
+                  </label>
+                </div>
+                <p className="text-[11px] text-gray-600 mb-3">
+                  Cài đặt thời gian tự động mở và kết thúc sự kiện (VD: mở từ 08:00 đến 17:00 ngày 20/11). Sau giờ kết thúc, hệ thống sẽ tự động khóa lượt quay sang trạng thái KẾT THÚC mà không cần thức canh thao tác thủ công.
+                </p>
+                {isAutoScheduled && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                        Thời gian bắt đầu tự động:
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
+                        Thời gian kết thúc tự động:
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="sm:col-span-3 flex flex-wrap items-center justify-end gap-3 pt-2">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold shadow-md transition flex items-center gap-2"
+                  className="px-4 py-2.5 bg-gray-800 hover:bg-gray-900 text-white rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Lưu Dịp Lễ & Ngân Sách</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveAllConfig}
+                  disabled={isSavingAll}
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition flex items-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{isSavingAll ? 'Đang lưu...' : 'Lưu Toàn Bộ Cấu Hình & 8 Ô Giải (1-Click)'}</span>
                 </button>
               </div>
             </form>
@@ -777,13 +1069,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* TAB 2: PRIZES & INVENTORY */}
       {activeTab === 'PRIZES' && (
         <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200 shadow-sm space-y-4 animate-fade-in">
-          <div className="flex items-center justify-between border-b pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
             <div>
               <h3 className="text-base font-bold text-gray-900">Cấu Hình Ô Vòng Quay & Tồn Kho</h3>
               <p className="text-xs text-gray-500">
                 Đổi tên, bật/tắt ô trên vòng quay và cấu hình số lượng, trọng số. Tắt ô sẽ loại ô đó khỏi kết quả quay.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleSaveAllConfig}
+              disabled={isSavingAll}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs sm:text-sm font-extrabold shadow-md transition flex items-center gap-2 shrink-0 self-start sm:self-auto"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{isSavingAll ? 'Đang lưu...' : 'Lưu Toàn Bộ 8 Ô Giải (1-Click)'}</span>
+            </button>
           </div>
 
           <div className="overflow-x-auto">
@@ -1108,14 +1409,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleExportClaimsCSV}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition flex items-center gap-1.5"
+                  onClick={() => handleExportClaimsCSV('ACCOUNTING')}
+                  className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition flex items-center gap-1.5"
+                  title="Xuất danh sách các mã đã chi tiền (PAID) và đang chờ (PENDING_PAYOUT) cho bộ phận Kế toán / Ban Giám hiệu đối soát"
                 >
-                  <FileSpreadsheet className="w-4 h-4" />
-                  <span>Xuất CSV Trao Thưởng</span>
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+                  <span>Xuất Báo Cáo Kế Toán (PAID + PENDING)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExportClaimsCSV('ALL')}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-1.5"
+                  title="Xuất toàn bộ danh sách trúng thưởng"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Xuất Tất Cả</span>
                 </button>
                 <button
                   onClick={fetchClaims}
@@ -1594,44 +1905,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <th className="py-2.5 px-3">Vai Trò</th>
                     <th className="py-2.5 px-3">Định Danh UID</th>
                     <th className="py-2.5 px-3">Ngày Cấp Quyền</th>
+                    <th className="py-2.5 px-3 text-right">Thao Tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {adminsList.map((adm) => (
-                    <tr key={adm.id} className="hover:bg-gray-50/80 transition">
-                      <td className="py-3 px-3 font-bold text-gray-900">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-red-100 text-red-800 flex items-center justify-center font-black text-xs">
-                            {(adm.username || adm.email || 'A').charAt(0).toUpperCase()}
+                  {adminsList.map((adm) => {
+                    const isMasterAdmin = adm.email === 'cuongtt.ptit@gmail.com';
+                    return (
+                      <tr key={adm.id} className="hover:bg-gray-50/80 transition">
+                        <td className="py-3 px-3 font-bold text-gray-900">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg bg-red-100 text-red-800 flex items-center justify-center font-black text-xs">
+                              {(adm.username || adm.email || 'A').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span>{adm.email || adm.username}</span>
+                                {isMasterAdmin && (
+                                  <span className="px-1.5 py-0.2 text-[9px] font-black bg-amber-400 text-red-950 rounded uppercase">
+                                    Gốc
+                                  </span>
+                                )}
+                              </div>
+                              {adm.email && adm.username !== adm.email && (
+                                <div className="text-[11px] text-gray-500 font-normal">Tên: {adm.username}</div>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <div>{adm.email || adm.username}</div>
-                            {adm.email && adm.username !== adm.email && (
-                              <div className="text-[11px] text-gray-500 font-normal">Tên: {adm.username}</div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          adm.role === 'SUPER_ADMIN'
-                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                            : 'bg-amber-100 text-amber-800 border border-amber-200'
-                        }`}>
-                          {adm.role}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-mono text-xs text-gray-500 max-w-[150px] truncate">
-                        {adm.id}
-                      </td>
-                      <td className="py-3 px-3 text-xs text-gray-500">
-                        {adm.createdAt ? new Date(adm.createdAt).toLocaleDateString('vi-VN') : 'Mặc định'}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-3 px-3">
+                          <select
+                            value={adm.role}
+                            disabled={isMasterAdmin}
+                            onChange={(e) => handleUpdateAdminRole(adm.id, e.target.value)}
+                            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-lg text-xs font-bold text-gray-800 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-75 disabled:bg-gray-100"
+                          >
+                            <option value="SUPER_ADMIN">SUPER_ADMIN</option>
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="MODERATOR">MODERATOR</option>
+                          </select>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-xs text-gray-500 max-w-[150px] truncate">
+                          {adm.id}
+                        </td>
+                        <td className="py-3 px-3 text-xs text-gray-500">
+                          {adm.createdAt ? new Date(adm.createdAt).toLocaleDateString('vi-VN') : 'Mặc định'}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          {isMasterAdmin ? (
+                            <span className="text-[11px] font-semibold text-stone-400 italic">
+                              Cố định
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAdmin(adm.id, adm.email || adm.username)}
+                              className="px-2.5 py-1 text-xs font-bold text-rose-600 hover:text-white hover:bg-rose-600 border border-rose-300 hover:border-rose-600 rounded-lg transition active:scale-95"
+                              title="Thu hồi quyền quản trị"
+                            >
+                              Xóa / Thu hồi
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {adminsList.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-6 text-center text-gray-400">
+                      <td colSpan={5} className="py-6 text-center text-gray-400">
                         Đang tải danh sách quản trị viên...
                       </td>
                     </tr>

@@ -15,6 +15,9 @@ import { AuthModal } from './components/AuthModal.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { EventWelcome } from './components/EventWelcome.tsx';
 import { UserProfileModal } from './components/UserProfileModal.tsx';
+import { GreetingCardStudio } from './components/GreetingCardStudio.tsx';
+import { StatusPopupModal, type StatusPopupData } from './components/StatusPopupModal.tsx';
+import { FallingPetals } from './components/FallingPetals.tsx';
 import { logoutFirebase } from './firebase.ts';
 import { soundManager } from './utils/audio.ts';
 import {
@@ -91,6 +94,67 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authDefaultTab, setAuthDefaultTab] = useState<'STUDENT' | 'ADMIN'>('STUDENT');
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
+  const [statusPopup, setStatusPopup] = useState<StatusPopupData>({
+    isOpen: false,
+    type: 'info',
+    title: '',
+  });
+
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('school_wheel_theme');
+      return saved === 'light' ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  const [petalsEnabled, setPetalsEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('school_wheel_petals');
+      return saved === 'false' ? false : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('school_wheel_theme', next);
+  };
+
+  const togglePetals = () => {
+    const next = !petalsEnabled;
+    setPetalsEnabled(next);
+    localStorage.setItem('school_wheel_petals', String(next));
+  };
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('theme-light');
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+      document.documentElement.classList.add('dark');
+    }
+  }, [theme]);
+
+  const [activeSection, setActiveSection] = useState<'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP'>('WHEEL');
+
+  const handleSelectSection = (section: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP') => {
+    setActiveSection(section);
+    if (section === 'WHEEL') {
+      document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (section === 'CARDS') {
+      document.getElementById('greeting-card-studio')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (section === 'PRIZES') {
+      document.getElementById('prize-matrix-showcase')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (section === 'LOOKUP') {
+      setLookupInitialCode('');
+      setIsLookupModalOpen(true);
+    }
+  };
 
   const showToast = (type: 'info' | 'success' | 'error', message: string) => {
     setToast({ type, message });
@@ -194,12 +258,69 @@ export default function App() {
     }
   };
 
+  // Central Spin Button Action
+  const handleCenterSpinClick = () => {
+    if (spinLockRef.current || isSpinning) return;
+
+    if (event?.status !== 'ACTIVE') {
+      setStatusPopup({
+        isOpen: true,
+        type: 'warning',
+        title: 'Vòng quay tạm đóng',
+        message:
+          event?.status === 'PAUSED'
+            ? 'Ban tổ chức đang tạm dừng vòng quay. Vui lòng quay lại sau ít phút!'
+            : 'Sự kiện đã chính thức khép lại. Cảm ơn các bạn học sinh đã tham gia!',
+      });
+      return;
+    }
+
+    // Priority 1: User has typed a ticket code -> spin with ticket!
+    if (ticketCode.trim()) {
+      handleSpinTicket();
+      return;
+    }
+
+    // Priority 2: Student logged in with free spins -> spin free!
+    if (currentUser && currentUser.freeSpinsRemaining > 0) {
+      handleSpinFree();
+      return;
+    }
+
+    // Priority 3: Student logged in but has 0 free spins -> show concise popup
+    if (currentUser && currentUser.freeSpinsRemaining <= 0) {
+      setStatusPopup({
+        isOpen: true,
+        type: 'spins_exhausted',
+        title: 'Đã hết 3 lượt quay miễn phí',
+        message: 'Mỗi tài khoản được cấp 3 lượt quay chúc mừng. Nhận vé sự kiện để tham gia giải tiền mặt, hoặc quay thử nghiệm.',
+        actionLabel: 'Nhận vé của tôi',
+        onAction: () => {
+          handleClaimStudentTicket();
+        },
+        secondaryLabel: 'Quay thử nghiệm',
+        onSecondary: () => {
+          handleSpinTrial();
+        },
+      });
+      return;
+    }
+
+    // Priority 4: Guest (not logged in) -> spin trial and invite login
+    handleSpinTrial();
+  };
+
   // Execute Ticket Spin
   const handleSpinTicket = async () => {
     if (spinLockRef.current || !ticketCode.trim()) return;
 
     if (event?.status !== 'ACTIVE') {
-      showToast('error', 'Sự kiện hiện không ở trạng thái mở quay!');
+      setStatusPopup({
+        isOpen: true,
+        type: 'warning',
+        title: 'Vòng quay tạm đóng',
+        message: 'Sự kiện hiện không ở trạng thái mở quay!',
+      });
       return;
     }
 
@@ -255,7 +376,12 @@ export default function App() {
       setSpinSlots(null);
       setIsSpinning(false);
       soundManager.playSpinError();
-      showToast('error', err.message || 'Lỗi xử lý lượt quay');
+      setStatusPopup({
+        isOpen: true,
+        type: 'error',
+        title: 'Thông báo quay thưởng',
+        message: err.message || 'Chưa thể thực hiện lượt quay. Vui lòng thử lại.',
+      });
     }
   };
 
@@ -269,7 +395,20 @@ export default function App() {
     }
 
     if (currentUser.freeSpinsRemaining <= 0) {
-      showToast('error', 'Bạn đã sử dụng hết 3 lượt quay miễn phí!');
+      setStatusPopup({
+        isOpen: true,
+        type: 'spins_exhausted',
+        title: 'Đã hết 3 lượt quay miễn phí',
+        message: 'Mỗi tài khoản được cấp 3 lượt quay chúc mừng. Nhận vé sự kiện để tham gia giải tiền mặt, hoặc quay thử nghiệm.',
+        actionLabel: 'Nhận vé của tôi',
+        onAction: () => {
+          handleClaimStudentTicket();
+        },
+        secondaryLabel: 'Quay thử nghiệm',
+        onSecondary: () => {
+          handleSpinTrial();
+        },
+      });
       return;
     }
 
@@ -319,7 +458,12 @@ export default function App() {
       setSpinSlots(null);
       setIsSpinning(false);
       soundManager.playSpinError();
-      showToast('error', err.message || 'Lỗi quay miễn phí');
+      setStatusPopup({
+        isOpen: true,
+        type: 'error',
+        title: 'Lượt quay chưa sẵn sàng',
+        message: err.message || 'Chưa thể thực hiện lượt quay. Vui lòng thử lại.',
+      });
     }
   };
 
@@ -360,7 +504,12 @@ export default function App() {
       setSpinSlots(null);
       setIsSpinning(false);
       soundManager.playSpinError();
-      showToast('error', err.message || 'Lỗi quay thử');
+      setStatusPopup({
+        isOpen: true,
+        type: 'error',
+        title: 'Thông báo quay thử',
+        message: err.message || 'Vui lòng thử lại sau giây lát.',
+      });
     }
   };
 
@@ -372,16 +521,33 @@ export default function App() {
     fetchEventConfig(); // Refresh remaining stats
 
     if (spinOutcome?.isTrial) {
-      showToast(
-        'info',
-        `[QUAY THỬ] Kim chỉ vào ô: ${spinOutcome.slotName}. (Lượt quay thử nghiệm - không có giá trị nhận thưởng)`
-      );
+      setStatusPopup({
+        isOpen: true,
+        type: 'spin_result',
+        title: 'Kết quả quay thử nghiệm',
+        slotName: spinOutcome.slotName,
+        message: 'Chúc bạn một ngày học tập và làm việc nhiều niềm vui!',
+        actionLabel: 'Quay tiếp thử nghiệm',
+        onAction: () => {
+          handleSpinTrial();
+        },
+      });
     } else if (spinOutcome?.isWin && spinOutcome.amount > 0 && spinOutcome.claimCode) {
       // Show Claim Modal for cash winners
       setIsClaimModalOpen(true);
-    } else {
+    } else if (spinOutcome) {
       // Wish / no cash
-      showToast('success', `Kết quả: ${spinOutcome?.slotName || 'Chúc may mắn lần sau!'}`);
+      setStatusPopup({
+        isOpen: true,
+        type: 'spin_result',
+        title: 'Chúc mừng bạn!',
+        slotName: spinOutcome.slotName,
+        message: 'Lời chúc ý nghĩa nhân dịp sự kiện Bách Khoa Events.',
+        actionLabel: 'Tạo thiệp gửi bạn bè',
+        onAction: () => {
+          document.getElementById('greeting-card-studio')?.scrollIntoView({ behavior: 'smooth' });
+        },
+      });
     }
   };
 
@@ -429,16 +595,31 @@ export default function App() {
   const activeWheelSlots = slotsToDisplay.filter((slot) => slot.isEnabled !== false);
 
   return (
-    <div className="min-h-screen bg-[#fffdf9] text-stone-800 flex flex-col font-sans selection:bg-rose-200 selection:text-rose-950">
+    <div
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 relative ${
+        theme === 'light'
+          ? 'bg-[#fffbf8] text-stone-900 selection:bg-rose-200 selection:text-rose-950'
+          : 'bg-[#180518] text-rose-100 selection:bg-rose-500 selection:text-white'
+      }`}
+    >
+      {/* Floating Falling Petals Canvas */}
+      <FallingPetals enabled={petalsEnabled} />
+
       {/* Toast Notification */}
       {toast && (
-        <div className="fixed top-20 right-4 z-50 max-w-sm p-4 rounded-2xl shadow-2xl border text-sm font-semibold flex items-center gap-2.5 animate-slide-in backdrop-blur-md bg-white text-gray-900 border-amber-300">
+        <div
+          className={`fixed top-20 right-4 z-50 max-w-sm p-4 rounded-2xl shadow-2xl border text-sm font-semibold flex items-center gap-2.5 animate-slide-in backdrop-blur-md ${
+            theme === 'light'
+              ? 'bg-white/95 text-stone-900 border-rose-300 shadow-rose-950/10'
+              : 'bg-[#2d0f28]/95 text-white border-amber-400/50 shadow-black/60'
+          }`}
+        >
           {toast.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
           ) : toast.type === 'error' ? (
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
           ) : (
-            <Info className="w-5 h-5 text-blue-600 shrink-0" />
+            <Info className="w-5 h-5 text-sky-500 shrink-0" />
           )}
           <span>{toast.message}</span>
         </div>
@@ -462,6 +643,11 @@ export default function App() {
         isAdminView={isAdminView}
         onLogoutUser={handleLogoutUser}
         onLogoutAdmin={handleLogoutAdmin}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        petalsEnabled={petalsEnabled}
+        onTogglePetals={togglePetals}
+        onNavigateSection={handleSelectSection}
       />
 
       {/* Main Content Area */}
@@ -474,10 +660,16 @@ export default function App() {
           />
         ) : (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
-            <EventWelcome event={event} onOpenLookup={() => {
-              setLookupInitialCode('');
-              setIsLookupModalOpen(true);
-            }} />
+            <EventWelcome
+              event={event}
+              currentUser={currentUser}
+              onOpenAuth={() => {
+                setAuthDefaultTab('STUDENT');
+                setIsAuthModalOpen(true);
+              }}
+              activeSection={activeSection}
+              onSelectSection={handleSelectSection}
+            />
 
             {/* Lucky Wheel & Spin Controls Layout */}
             <div id="lucky-wheel" className="scroll-mt-24 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center max-w-6xl mx-auto">
@@ -487,6 +679,7 @@ export default function App() {
                   slots={spinSlots || activeWheelSlots}
                   isSpinning={isSpinning}
                   onSpinEnd={handleSpinEnd}
+                  onSpinCenter={handleCenterSpinClick}
                   targetSlotIndex={targetSlotIndex}
                   spinOutcome={spinOutcome}
                   disabled={event?.status !== 'ACTIVE'}
@@ -517,20 +710,43 @@ export default function App() {
                   onClaimStudentTicket={handleClaimStudentTicket}
                   isClaimingTicket={isClaimingTicket}
                   eventStatus={event?.status || 'ACTIVE'}
+                  onOpenAuth={() => {
+                    setAuthDefaultTab('STUDENT');
+                    setIsAuthModalOpen(true);
+                  }}
                 />
               </div>
             </div>
 
             {/* Prize Matrix Showcase */}
-            <div className="mt-12 bg-slate-800/60 border border-slate-700/80 rounded-3xl p-6 max-w-5xl mx-auto">
-              <div className="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
+            <div
+              id="prize-matrix-showcase"
+              className={`scroll-mt-24 mt-12 rounded-3xl p-5 sm:p-7 max-w-5xl mx-auto shadow-2xl transition-colors duration-300 ${
+                theme === 'light'
+                  ? 'bg-white border border-rose-200/80 shadow-rose-950/5'
+                  : 'bg-[#2a1128]/85 border border-white/10 backdrop-blur-xl shadow-black/60'
+              }`}
+            >
+              <div
+                className={`flex items-center justify-between mb-4 pb-3 border-b ${
+                  theme === 'light' ? 'border-rose-100' : 'border-white/10'
+                }`}
+              >
                 <div className="flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-amber-400" />
-                  <h3 className="font-bold text-base sm:text-lg text-white">
-                    Cơ Cấu 8 Ô Vòng Quay Sự Kiện
+                  <Trophy className="w-5 h-5 text-amber-500" />
+                  <h3
+                    className={`font-black text-base sm:text-lg ${
+                      theme === 'light' ? 'text-stone-900' : 'text-white'
+                    }`}
+                  >
+                    Cơ Cấu Giải Thưởng
                   </h3>
                 </div>
-                <span className="text-xs text-slate-400">
+                <span
+                  className={`text-xs ${
+                    theme === 'light' ? 'text-stone-500' : 'text-rose-200/70'
+                  }`}
+                >
                   4 giải tiền mặt xen kẽ 4 ô lời chúc ý nghĩa
                 </span>
               </div>
@@ -543,26 +759,58 @@ export default function App() {
                       key={slot.index}
                       className={`p-3.5 rounded-2xl border transition ${
                         slot.isCash
-                          ? 'bg-amber-950/30 border-amber-500/40'
-                          : 'bg-slate-900/40 border-slate-700'
+                          ? theme === 'light'
+                            ? 'bg-amber-50/80 border-amber-300 shadow-sm'
+                            : 'bg-amber-950/40 border-amber-500/40'
+                          : theme === 'light'
+                          ? 'bg-rose-50/50 border-rose-200 shadow-sm'
+                          : 'bg-black/30 border-white/10'
                       }`}
                     >
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-slate-400 font-mono">Ô #{slot.index + 1}</span>
+                        <span
+                          className={`font-mono font-bold ${
+                            theme === 'light' ? 'text-stone-600' : 'text-rose-200'
+                          }`}
+                        >
+                          Ô #{slot.index + 1}
+                        </span>
                         {slot.isCash ? (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-400/20 text-amber-300">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-black border ${
+                              theme === 'light'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : 'bg-amber-400/20 text-amber-300 border-amber-400/40'
+                            }`}
+                          >
                             TIỀN MẶT
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-400/20 text-blue-300">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                              theme === 'light'
+                                ? 'bg-rose-100 text-rose-900 border-rose-300'
+                                : 'bg-rose-400/20 text-rose-200 border-rose-400/40'
+                            }`}
+                          >
                             LỜI CHÚC
                           </span>
                         )}
                       </div>
-                      <p className="font-extrabold text-sm text-white">{slot.name}</p>
+                      <p
+                        className={`font-extrabold text-sm ${
+                          theme === 'light' ? 'text-stone-900' : 'text-white'
+                        }`}
+                      >
+                        {slot.name}
+                      </p>
                       {slot.isCash && prizeData && (
-                        <p className="text-[11px] text-amber-200 mt-1 font-semibold">
-                          Còn lại: <strong>{prizeData.remaining_quantity}</strong> /{' '}
+                        <p
+                          className={`text-[11px] mt-1 font-semibold ${
+                            theme === 'light' ? 'text-amber-900' : 'text-amber-200'
+                          }`}
+                        >
+                          Còn lại: <strong className={theme === 'light' ? 'text-amber-950' : 'text-yellow-100'}>{prizeData.remaining_quantity}</strong> /{' '}
                           {prizeData.total_quantity} suất
                         </p>
                       )}
@@ -572,23 +820,40 @@ export default function App() {
               </div>
             </div>
 
+            {/* Studio Tạo Thiệp Điện Tử & Lời Chúc Tiếng Việt (Giai Đoạn 2) */}
+            <GreetingCardStudio currentOccasionId={event?.occasion || '20_11'} />
+
           </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-rose-100 bg-white py-6 text-center text-xs text-stone-500">
+      <footer
+        className={`border-t py-6 text-center text-xs transition-colors duration-300 ${
+          theme === 'light'
+            ? 'border-rose-100 bg-white text-stone-600'
+            : 'border-white/10 bg-[#120312] text-rose-200/60'
+        }`}
+      >
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <School className="w-4 h-4 text-rose-600" />
-            <span className="font-medium">
+            <School className="w-4 h-4 text-rose-500" />
+            <span
+              className={`font-medium ${
+                theme === 'light' ? 'text-stone-800' : 'text-rose-100'
+              }`}
+            >
               Bách Khoa Events · Trường Trung cấp Công nghiệp Bách Khoa Sầm Sơn
             </span>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-stone-500">
+          <div
+            className={`flex items-center gap-4 text-[11px] ${
+              theme === 'light' ? 'text-stone-500' : 'text-rose-300/70'
+            }`}
+          >
             <span>Xử lý giao dịch nguyên tử (ACID Transaction)</span>
             <span>•</span>
-            <span className="text-emerald-700 font-semibold">Hệ thống an toàn</span>
+            <span className="text-emerald-600 font-semibold">Hệ thống an toàn</span>
           </div>
         </div>
       </footer>
@@ -648,6 +913,12 @@ export default function App() {
           setIsClaimModalOpen(true);
         }}
         onSwitchToAdmin={() => setIsAdminView(true)}
+      />
+
+      {/* Concise Feedback & Result Popup Modal (Dismissible on Backdrop Click) */}
+      <StatusPopupModal
+        popup={statusPopup}
+        onClose={() => setStatusPopup((prev) => ({ ...prev, isOpen: false }))}
       />
     </div>
   );

@@ -1,6 +1,16 @@
-import React, { useState } from 'react';
-import { Ticket, StudentUser } from '../types/index.ts';
-import { Ticket as TicketIcon, CheckCircle2, XCircle, AlertTriangle, Play, Sparkles, HelpCircle } from 'lucide-react';
+import React from 'react';
+import { StudentUser } from '../types/index.ts';
+import {
+  Ticket as TicketIcon,
+  Search,
+  Zap,
+  RotateCw,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  LogIn,
+  Gift,
+} from 'lucide-react';
 
 interface TicketFormProps {
   ticketCode: string;
@@ -21,6 +31,7 @@ interface TicketFormProps {
   onClaimStudentTicket: () => Promise<void>;
   isClaimingTicket: boolean;
   eventStatus: string;
+  onOpenAuth?: () => void;
 }
 
 export const TicketForm: React.FC<TicketFormProps> = ({
@@ -38,6 +49,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({
   onClaimStudentTicket,
   isClaimingTicket,
   eventStatus,
+  onOpenAuth,
 }) => {
   const isEventActive = eventStatus === 'ACTIVE';
 
@@ -46,151 +58,164 @@ export const TicketForm: React.FC<TicketFormProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-amber-200/80 p-5 sm:p-6 w-full max-w-lg mx-auto">
-      <div className="flex items-center justify-between border-b pb-3 mb-4">
-        <div className="flex items-center gap-2">
-          <TicketIcon className="w-5 h-5 text-red-600" />
-          <h2 className="text-base sm:text-lg font-bold text-gray-900">
-            Khu Vực Quay Thưởng
-          </h2>
+    <div className="w-full max-w-lg mx-auto space-y-4">
+      {/* Main Participation Card matching reference design */}
+      <div className="ticket-main-card bg-[#2a1128]/85 backdrop-blur-xl rounded-3xl p-6 sm:p-7 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] text-white transition-colors">
+        {/* Card Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-fuchsia-900/40 shrink-0">
+            <TicketIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="ticket-card-title text-base sm:text-lg font-black tracking-tight text-white font-['Montserrat',sans-serif]">
+              Tham Gia Bằng Mã Vé / Tài Khoản
+            </h2>
+            <p className="ticket-card-subtitle text-xs text-rose-200/80">
+              Đăng nhập hoặc nhập mã vé dự thưởng để quay
+            </p>
+          </div>
         </div>
-        <span className="text-xs font-semibold px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full border border-amber-300">
-          Tiền mặt: 10k - 100k
-        </span>
-      </div>
 
-      {/* Ticket Input Section */}
-      <div className="space-y-3">
-        <label className="block text-xs sm:text-sm font-semibold text-gray-700">
-          Nhập mã vé dự thưởng <span className="text-red-500">*</span>
-          <span className="text-xs font-normal text-gray-500 ml-1">
-            (Bắt buộc để tham gia giải tiền mặt)
-          </span>
-        </label>
+        {/* Warning / Callout Banner matching reference image */}
+        <div className="ticket-callout-banner mb-5 p-3.5 rounded-2xl bg-gradient-to-r from-red-950/80 to-pink-950/80 border border-rose-500/30 text-xs text-rose-100 flex items-start gap-2.5 transition-colors">
+          <span className="text-amber-400 font-bold shrink-0">ⓘ</span>
+          <div className="flex-1 leading-relaxed">
+            {currentUser ? (
+              <span>
+                Chào mừng <strong className="text-amber-300 font-bold">{currentUser.fullName || currentUser.username}</strong>! Bạn còn <strong className="text-amber-300 font-bold">{currentUser.freeSpinsRemaining}</strong> lượt quay miễn phí hoặc nhận vé sự kiện để rinh tiền mặt.
+              </span>
+            ) : (
+              <span>
+                Vui lòng <strong className="font-bold">Đăng nhập</strong> để nhận 3 lượt quay miễn phí hoặc <strong className="font-bold">Nhập mã vé dự thưởng</strong> từ nhà trường để quay!
+              </span>
+            )}
+          </div>
+          {!currentUser && onOpenAuth && (
+            <button
+              type="button"
+              onClick={onOpenAuth}
+              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-red-950 font-black text-[11px] rounded-lg shrink-0 transition"
+            >
+              Đăng nhập
+            </button>
+          )}
+        </div>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        {/* Ticket Input Section */}
+        <div className="space-y-2 mb-5">
+          <label className="ticket-input-label block text-xs font-semibold text-rose-200">
+            Mã vé dự thưởng <span className="ticket-input-hint text-rose-400/80 font-normal">(Do ban tổ chức cấp riêng)</span>
+          </label>
+
+          <div className="flex gap-2">
             <input
               type="text"
               value={ticketCode}
               onChange={handleInputChange}
-              placeholder="VD: SCH-8K9M-2026"
+              placeholder="Nhập mã vé BKS-2010-XXX..."
               disabled={isSpinning}
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-mono font-bold tracking-wider uppercase focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition"
+              className="ticket-input-field flex-1 px-4 py-3 bg-[#190919] border border-white/15 rounded-2xl text-xs sm:text-sm font-mono font-bold tracking-wider uppercase text-amber-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent transition"
             />
-          </div>
 
-          <button
-            type="button"
-            onClick={onVerifyTicket}
-            disabled={!ticketCode.trim() || isVerifying || isSpinning}
-            className="px-4 py-2.5 bg-gray-800 hover:bg-gray-900 text-white rounded-xl text-xs sm:text-sm font-semibold transition disabled:opacity-50 active:scale-95 shrink-0"
-          >
-            {isVerifying ? 'Đang kiểm...' : 'Kiểm tra vé'}
-          </button>
-        </div>
-
-        {/* Verification Result Notice */}
-        {verificationResult && (
-          <div
-            className={`p-3 rounded-xl text-xs sm:text-sm flex items-start gap-2.5 transition ${
-              verificationResult.valid
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
-          >
-            {verificationResult.valid ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            ) : (
-              <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            )}
-            <div>
-              <p className="font-semibold">{verificationResult.message}</p>
-              {verificationResult.valid && (
-                <p className="text-xs text-emerald-700 mt-0.5">
-                  Mã vé sẵn sàng! Nhấn nút &quot;Quay vé tiền mặt&quot; bên dưới để bắt đầu.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Shortcut to claim 1 ticket for logged in student */}
-        {currentUser && (
-          <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 flex items-center justify-between">
-            <div className="text-xs text-amber-900">
-              <span className="font-semibold block">Bạn là học sinh?</span>
-              Mỗi tài khoản được cấp 1 vé dự thưởng chính thức.
-            </div>
             <button
-              onClick={onClaimStudentTicket}
-              disabled={isClaimingTicket || isSpinning}
-              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-xs shadow-sm transition active:scale-95 shrink-0"
+              type="button"
+              onClick={onVerifyTicket}
+              disabled={!ticketCode.trim() || isVerifying || isSpinning}
+              className="ticket-verify-btn px-4 py-3 bg-[#4a1d4b] hover:bg-[#5e225f] text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition disabled:opacity-50 active:scale-95 flex items-center gap-1.5 shrink-0"
             >
-              {isClaimingTicket ? 'Đang cấp vé...' : 'Nhận vé của tôi'}
+              <Search className="w-4 h-4 text-rose-300" />
+              <span>{isVerifying ? 'Kiểm...' : 'Kiểm tra'}</span>
             </button>
           </div>
-        )}
-      </div>
 
-      {/* Main Spin Action Buttons */}
-      <div className="mt-5 space-y-2.5">
-        {/* Ticket Spin Button */}
-        <button
-          onClick={onSpinTicket}
-          disabled={!canSpin || !ticketCode.trim() || !isEventActive || isSpinning}
-          className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 active:scale-[0.99] text-white font-extrabold text-base shadow-lg shadow-red-500/25 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          <Play className="w-5 h-5 fill-current" />
-          <span>{isSpinning ? 'Đang quay may mắn...' : 'Quay Bằng Vé (Cơ hội trúng tiền)'}</span>
-        </button>
+          {/* Verification Result Banner */}
+          {verificationResult && (
+            <div
+              className={`p-3 rounded-2xl text-xs flex items-center gap-2 border transition ${
+                verificationResult.valid
+                  ? 'bg-emerald-950/80 text-emerald-200 border-emerald-500/40'
+                  : 'bg-rose-950/80 text-rose-200 border-rose-500/40'
+              }`}
+            >
+              {verificationResult.valid ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+              <span className="font-semibold">{verificationResult.message}</span>
+            </div>
+          )}
 
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          {/* Free Spin Button */}
+          {/* Shortcut to claim 1 ticket for logged-in student */}
+          {currentUser && (
+            <div className="ticket-student-box bg-amber-500/10 border border-amber-400/25 rounded-2xl p-3 flex items-center justify-between mt-2 transition-colors">
+              <div className="text-[11px] text-amber-200">
+                <span className="font-bold block text-white">Bạn là học sinh Bách Khoa?</span>
+                Nhận vé sự kiện độc bản cho tài khoản của bạn.
+              </div>
+              <button
+                type="button"
+                onClick={onClaimStudentTicket}
+                disabled={isClaimingTicket || isSpinning}
+                className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-red-950 font-bold rounded-xl text-xs shadow-md transition active:scale-95 shrink-0"
+              >
+                {isClaimingTicket ? 'Đang cấp...' : 'Nhận vé của tôi'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons matching reference image */}
+        <div className="space-y-2.5">
+          {/* Main Primary Button: QUAY LẤY MAY (gradient) */}
           <button
-            onClick={onSpinFree}
-            disabled={
-              !currentUser ||
-              currentUser.freeSpinsRemaining <= 0 ||
-              !isEventActive ||
-              isSpinning
-            }
-            className="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm shadow-md transition disabled:opacity-40 active:scale-95 flex flex-col items-center justify-center text-center"
+            type="button"
+            onClick={() => {
+              if (ticketCode.trim()) {
+                onSpinTicket();
+              } else if (currentUser && currentUser.freeSpinsRemaining > 0) {
+                onSpinFree();
+              } else {
+                onSpinTrial();
+              }
+            }}
+            disabled={!canSpin || !isEventActive || isSpinning}
+            className="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-fuchsia-600 hover:from-amber-400 hover:via-orange-400 hover:to-fuchsia-500 active:scale-[0.99] text-white font-black text-base shadow-[0_10px_25px_rgba(234,88,12,0.45)] transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span className="flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-blue-200" />
-              <span>Quay Miễn Phí</span>
-            </span>
-            <span className="text-[11px] font-normal text-blue-100">
-              {currentUser
-                ? `Còn ${currentUser.freeSpinsRemaining} lượt (Chỉ lời chúc)`
-                : 'Đăng nhập để nhận'}
+            <Zap className="w-5 h-5 fill-current text-yellow-200" />
+            <span>
+              {isSpinning
+                ? 'ĐANG QUAY THƯỞNG...'
+                : ticketCode.trim()
+                ? 'QUAY VÉ TIỀN MẶT'
+                : currentUser && currentUser.freeSpinsRemaining > 0
+                ? `QUAY MIỄN PHÍ (${currentUser.freeSpinsRemaining} LƯỢT)`
+                : '⚡ QUAY LẤY MAY'}
             </span>
           </button>
 
-          {/* Trial Spin Button */}
+          {/* Secondary Button: Quay thử (Demo) */}
           <button
+            type="button"
             onClick={onSpinTrial}
             disabled={isSpinning}
-            className="py-2.5 px-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs sm:text-sm border border-gray-300 transition active:scale-95 flex flex-col items-center justify-center text-center"
+            className="ticket-demo-btn w-full py-3 px-4 rounded-2xl bg-white/10 hover:bg-white/15 text-rose-100 font-bold text-xs sm:text-sm border border-white/10 transition active:scale-95 flex items-center justify-center gap-1.5"
           >
-            <span>Quay Thử Nghiệm</span>
-            <span className="text-[10px] font-normal text-gray-500">
-              Không đổi dữ liệu / giải
-            </span>
+            <RotateCw className="w-4 h-4 text-rose-300" />
+            <span>Quay thử (Demo)</span>
           </button>
         </div>
       </div>
 
-      {/* Rules Notice */}
-      <div className="mt-4 pt-3 border-t border-gray-100 text-[11px] text-gray-500 space-y-1">
-        <p className="flex items-center gap-1 font-medium text-gray-700">
-          <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-          Quy định quay số:
+      {/* Transparency Info Box matching reference image */}
+      <div className="ticket-transparency-box bg-[#240a25]/80 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-xs text-rose-200/80 leading-relaxed shadow-lg transition-colors">
+        <div className="flex items-center gap-2 font-bold text-amber-300 mb-1">
+          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <span>Quy trình trao thưởng minh bạch MoMo & Cloud Firestore</span>
+        </div>
+        <p className="text-[11px] text-stone-300">
+          Mỗi lượt quay dừng chuẩn xác tại vị trí kim chỉ. Người trúng giải MoMo nhận mã dự thưởng độc bản, nộp thông tin nhận thưởng và được bộ phận quản trị nhà trường đối soát, chuyển khoản MoMo minh bạch.
         </p>
-        <p>• Vé chỉ được sử dụng đúng 1 lần duy nhất, kết quả do backend xác nhận.</p>
-        <p>• Lượt quay thử không có giá trị nhận thưởng.</p>
-        <p>• Khi trúng thưởng, hệ thống sẽ cấp mã nhận thưởng để đối soát và trao tiền.</p>
       </div>
     </div>
   );

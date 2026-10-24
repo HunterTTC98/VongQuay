@@ -187,4 +187,45 @@ test('Admin authorization recognizes cuongtt.ptit@gmail.com as super administrat
   assert.equal(isMasterAdmin('student@gmail.com'), false);
 });
 
+test('getEffectiveEventStatus accurately computes scheduled status', async () => {
+  const { getEffectiveEventStatus } = await import('./api.ts');
+
+  // 1. Manual status ENDED always overrides
+  assert.equal(getEffectiveEventStatus({ status: 'ENDED', is_auto_scheduled: false }).status, 'ENDED');
+  assert.equal(getEffectiveEventStatus({ status: 'PAUSED', is_auto_scheduled: false }).status, 'PAUSED');
+  assert.equal(getEffectiveEventStatus({ status: 'ACTIVE', is_auto_scheduled: false }).status, 'ACTIVE');
+
+  // 2. Future start time with auto-schedule -> PAUSED
+  const futureStart = new Date(Date.now() + 3600 * 1000).toISOString();
+  const resFuture = getEffectiveEventStatus({
+    status: 'ACTIVE',
+    is_auto_scheduled: true,
+    start_time: futureStart,
+  });
+  assert.equal(resFuture.status, 'PAUSED');
+  assert.ok(resFuture.scheduledReason?.includes('tự động mở'));
+
+  // 3. Past end time with auto-schedule -> ENDED
+  const pastEnd = new Date(Date.now() - 3600 * 1000).toISOString();
+  const resPast = getEffectiveEventStatus({
+    status: 'ACTIVE',
+    is_auto_scheduled: true,
+    end_time: pastEnd,
+  });
+  assert.equal(resPast.status, 'ENDED');
+  assert.ok(resPast.scheduledReason?.includes('tự động kết thúc'));
+
+  // 4. Currently active within window
+  const activeStart = new Date(Date.now() - 3600 * 1000).toISOString();
+  const activeEnd = new Date(Date.now() + 3600 * 1000).toISOString();
+  const resActive = getEffectiveEventStatus({
+    status: 'ACTIVE',
+    is_auto_scheduled: true,
+    start_time: activeStart,
+    end_time: activeEnd,
+  });
+  assert.equal(resActive.status, 'ACTIVE');
+});
+
+
 

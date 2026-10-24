@@ -61,6 +61,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   }, [isOpen, token]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
     if (currentUser) {
       setEditFullName(currentUser.fullName || '');
       setEditClass(currentUser.studentClass || '');
@@ -140,7 +149,12 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const hasAdminPrivilege = profileData?.isAdmin || isAdmin;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white rounded-3xl shadow-2xl border border-amber-200/80 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="bg-gradient-to-r from-red-700 via-rose-700 to-amber-600 text-white p-5 sm:p-6 relative">

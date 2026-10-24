@@ -72,6 +72,43 @@ router.get('/health', async (_req: Request, res: Response) => {
 });
 
 /**
+ * Calculates effective event status considering automatic time scheduling
+ */
+export function getEffectiveEventStatus(event: any): {
+  status: 'ACTIVE' | 'PAUSED' | 'ENDED';
+  scheduledReason?: string;
+} {
+  if (!event) return { status: 'PAUSED', scheduledReason: 'Chưa cấu hình sự kiện' };
+  const manualStatus = event.status || 'ACTIVE';
+  if (manualStatus === 'ENDED') {
+    return { status: 'ENDED', scheduledReason: 'Sự kiện đã chính thức kết thúc' };
+  }
+  if (manualStatus === 'PAUSED') {
+    return { status: 'PAUSED', scheduledReason: 'Ban tổ chức đang tạm dừng vòng quay' };
+  }
+
+  if (event.is_auto_scheduled) {
+    const now = new Date();
+    if (event.start_time) {
+      const start = new Date(event.start_time);
+      if (!isNaN(start.getTime()) && now < start) {
+        const timeStr = start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+        return { status: 'PAUSED', scheduledReason: `Vòng quay sẽ tự động mở lúc ${timeStr}` };
+      }
+    }
+    if (event.end_time) {
+      const end = new Date(event.end_time);
+      if (!isNaN(end.getTime()) && now > end) {
+        const timeStr = end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+        return { status: 'ENDED', scheduledReason: `Vòng quay đã tự động kết thúc lúc ${timeStr}` };
+      }
+    }
+  }
+
+  return { status: 'ACTIVE' };
+}
+
+/**
  * Public Event Configuration and Live Stats
  */
 router.get('/event', async (_req: Request, res: Response) => {
@@ -89,13 +126,18 @@ router.get('/event', async (_req: Request, res: Response) => {
 
     const totalBudget = Number(event?.total_budget || 0);
     const usedBudget = Number(event?.used_budget || 0);
+    const effStatus = getEffectiveEventStatus(event);
 
     res.json({
       success: true,
       event: {
         name: event?.name || 'Sự Kiện Trường Học',
         occasion: event?.occasion || 'HOI_TRUONG_2026',
-        status: event?.status || 'ACTIVE',
+        status: effStatus.status,
+        scheduledReason: effStatus.scheduledReason,
+        startTime: event?.start_time || null,
+        endTime: event?.end_time || null,
+        isAutoScheduled: Boolean(event?.is_auto_scheduled),
         totalBudget,
         usedBudget,
         remainingBudget: Math.max(0, totalBudget - usedBudget),
@@ -220,9 +262,9 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
         const [eventSnap, userSnap, ...prizeTierSnaps] = await tx.getAll([eventRef, userRef, ...prizeTierRefs]);
         const event = eventSnap.exists ? eventSnap.data() : null;
 
-        if (!event || event.status !== 'ACTIVE') {
-          const statusMsg = event?.status === 'PAUSED' ? 'Sự kiện đang tạm dừng' : 'Sự kiện đã kết thúc';
-          throw new Error(`${statusMsg}. Ban tổ chức hiện không mở lượt quay!`);
+        const effStatus = getEffectiveEventStatus(event);
+        if (effStatus.status !== 'ACTIVE') {
+          throw new Error(effStatus.scheduledReason || 'Ban tổ chức hiện không mở lượt quay!');
         }
 
         if (!userSnap.exists) {
@@ -305,9 +347,9 @@ router.post('/spin', optionalStudent, async (req: AuthenticatedRequest, res: Res
         const userSnap = userRef ? remainingSnaps[8] : null;
         const event = eventSnap.exists ? eventSnap.data() : null;
 
-        if (!event || event.status !== 'ACTIVE') {
-          const statusMsg = event?.status === 'PAUSED' ? 'Sự kiện đang tạm dừng' : 'Sự kiện đã kết thúc';
-          throw new Error(`${statusMsg}. Ban tổ chức hiện không mở lượt quay!`);
+        const effStatus = getEffectiveEventStatus(event);
+        if (effStatus.status !== 'ACTIVE') {
+          throw new Error(effStatus.scheduledReason || 'Ban tổ chức hiện không mở lượt quay!');
         }
 
         const totalBudget = Number(event.total_budget || 0);
@@ -1219,7 +1261,7 @@ router.post('/admin/event/status', requireAdmin, async (req: AuthenticatedReques
  */
 router.post('/admin/event/config', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { name, totalBudget, occasion } = req.body;
+    const { name, totalBudget, occasion, startTime, endTime, isAutoScheduled } = req.body;
     const db = await getDb();
     const eventRef = db.collection('event_config').doc('current');
     const eventSnap = await eventRef.get();
@@ -1238,6 +1280,9 @@ router.post('/admin/event/config', requireAdmin, async (req: AuthenticatedReques
     if (name) updates.name = name;
     if (totalBudget !== undefined) updates.total_budget = Number(totalBudget);
     if (occasion) updates.occasion = occasion;
+    if (startTime !== undefined) updates.start_time = startTime || null;
+    if (endTime !== undefined) updates.end_time = endTime || null;
+    if (isAutoScheduled !== undefined) updates.is_auto_scheduled = Boolean(isAutoScheduled);
 
     await eventRef.update(updates);
 
@@ -1510,6 +1555,86 @@ router.get('/admin/claims', requireAdmin, async (_req: AuthenticatedRequest, res
 });
 
 /**
+ * Admin: Export Claims to CSV / Excel (UTF-8 with BOM for Excel compatibility)
+ * Filters by status e.g. ?status=PAID,PENDING_PAYOUT or all
+ */
+router.get('/admin/claims/export', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const statusParam = (req.query.status as string) || '';
+    const statusFilter = statusParam
+      ? statusParam.split(',').map((s) => s.trim().toUpperCase())
+      : ['PAID', 'PENDING_PAYOUT'];
+
+    const db = await getDb();
+    const claimsSnap = await db.collection('claims').orderBy('created_at', 'desc').get();
+    let claims = claimsSnap.docs.map((d) => d.data()!);
+
+    if (statusFilter.length > 0 && !statusFilter.includes('ALL')) {
+      claims = claims.filter((c) => statusFilter.includes(c.status));
+    }
+
+    const header = [
+      'STT',
+      'Mã Nhận Thưởng',
+      'Mã Vé',
+      'Họ Và Tên Học Sinh',
+      'Lớp / Chi Đoàn',
+      'Số Điện Thoại',
+      'Số Tiền Thưởng (VNĐ)',
+      'Hình Thức Nhận',
+      'Tài Khoản / Ví MoMo',
+      'Trạng Thái',
+      'Mã Giao Dịch Ngân Hàng',
+      'Ghi Chú Ban Tổ Chức',
+      'Thời Gian Trúng',
+      'Cập Nhật Cuối',
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const statusTranslations: Record<string, string> = {
+      UNSUBMITTED: 'Chưa điền thông tin',
+      PENDING_VERIFICATION: 'Chờ xác minh',
+      VERIFIED: 'Đã xác minh',
+      PENDING_PAYOUT: 'Chờ chuyển tiền',
+      PAID: 'Đã chuyển tiền',
+      REJECTED: 'Bị từ chối',
+    };
+
+    const rows = claims.map((c, idx) =>
+      [
+        idx + 1,
+        escapeCsv(c.claim_code || c.claimCode),
+        escapeCsv(c.ticket_code || c.ticketCode || 'Vé sự kiện'),
+        escapeCsv(c.student_name || c.studentName || 'Chưa cập nhật'),
+        escapeCsv(c.student_class || c.studentClass || 'Chưa cập nhật'),
+        escapeCsv(Number(c.prize_amount || 0)),
+        escapeCsv(c.payout_method === 'BANK_MOMO' ? 'Chuyển khoản / MoMo' : 'Tiền mặt trực tiếp'),
+        escapeCsv(c.payout_account || c.payoutAccount || 'Tại trường'),
+        escapeCsv(statusTranslations[c.status] || c.status),
+        escapeCsv(c.transaction_ref || c.transactionRef || ''),
+        escapeCsv(c.admin_note || c.adminNote || ''),
+        escapeCsv(c.created_at || c.createdAt || ''),
+        escapeCsv(c.updated_at || c.updatedAt || ''),
+      ].join(',')
+    );
+
+    const csvContent = '\uFEFF' + [header.join(','), ...rows].join('\r\n');
+    const dateStr = new Date().toISOString().slice(0, 10);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="BaoCao_TraoThuong_BachKhoaEvents_${dateStr}.csv"`);
+    res.send(csvContent);
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * Admin: Update Claim Status with State Transition Validation
  */
 router.post('/admin/claims/:code/update', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
@@ -1688,6 +1813,170 @@ router.post('/admin/admins/add', requireAdmin, async (req: AuthenticatedRequest,
         createdAt: nowStr,
       },
     });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Admin: Update Admin Role
+ */
+router.post('/admin/admins/update-role', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id, role } = req.body;
+    if (!id || !role) {
+      res.status(400).json({ success: false, error: 'Thiếu thông tin quản trị viên hoặc vai trò' });
+      return;
+    }
+
+    const validRoles = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR'];
+    if (!validRoles.includes(role)) {
+      res.status(400).json({ success: false, error: 'Vai trò quản trị viên không hợp lệ' });
+      return;
+    }
+
+    const db = await getDb();
+    const adminRef = db.collection('admins').doc(id);
+    const snap = await adminRef.get();
+    if (!snap.exists) {
+      res.status(404).json({ success: false, error: 'Không tìm thấy quản trị viên' });
+      return;
+    }
+
+    await adminRef.update({
+      role,
+      updated_at: new Date().toISOString(),
+    });
+
+    await logAudit(
+      req.admin!.username,
+      'UPDATE_ADMIN_ROLE',
+      `Đổi vai trò admin ${snap.data()?.email || snap.data()?.username} thành ${role}`,
+      req.ip || '127.0.0.1'
+    );
+
+    res.json({ success: true, message: 'Đã cập nhật vai trò quản trị viên thành công!' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Admin: Delete / Revoke Admin Account
+ */
+router.post('/admin/admins/delete', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.body;
+    if (!id) {
+      res.status(400).json({ success: false, error: 'Vui lòng cung cấp ID quản trị viên cần xóa' });
+      return;
+    }
+
+    const db = await getDb();
+    const adminRef = db.collection('admins').doc(id);
+    const snap = await adminRef.get();
+    if (!snap.exists) {
+      res.status(404).json({ success: false, error: 'Không tìm thấy tài khoản quản trị viên' });
+      return;
+    }
+
+    const adminData = snap.data()!;
+    // Protect master admin from deletion
+    if (adminData.email === 'cuongtt.ptit@gmail.com') {
+      res.status(403).json({ success: false, error: 'Không thể xóa tài khoản Quản Trị Viên Tối Cao (Master Admin)' });
+      return;
+    }
+
+    await adminRef.delete();
+
+    await logAudit(
+      req.admin!.username,
+      'DELETE_ADMIN',
+      `Thu hồi quyền quản trị của: ${adminData.email || adminData.username}`,
+      req.ip || '127.0.0.1'
+    );
+
+    res.json({ success: true, message: `Đã thu hồi quyền quản trị của ${adminData.email || adminData.username} thành công!` });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Admin: Save Entire Event Configuration and Prize Tiers in ONE Atomic Batch
+ */
+router.post('/admin/save-all-config', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { name, totalBudget, occasion, status, prizes, startTime, endTime, isAutoScheduled } = req.body;
+    const db = await getDb();
+
+    const eventRef = db.collection('event_config').doc('current');
+    const tierRefs = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => db.collection('prize_tiers').doc(`slot_${i}`));
+
+    await db.runTransaction(async (tx) => {
+      // 1. All reads first
+      const eventSnap = await tx.get(eventRef);
+      const tierSnaps = await tx.getAll(tierRefs);
+
+      const eventData = eventSnap.exists ? eventSnap.data() : null;
+      const usedBudget = Number(eventData?.used_budget || 0);
+
+      if (totalBudget !== undefined) {
+        const budgetVal = validateBudgetUpdate(Number(totalBudget), usedBudget);
+        if (!budgetVal.valid) {
+          throw new Error(budgetVal.error || 'Ngân sách không hợp lệ');
+        }
+      }
+
+      const nowStr = new Date().toISOString();
+
+      // 2. Writes: Update Event Config
+      const eventUpdates: Record<string, any> = { updated_at: nowStr };
+      if (name) eventUpdates.name = name;
+      if (totalBudget !== undefined) eventUpdates.total_budget = Number(totalBudget);
+      if (occasion) eventUpdates.occasion = occasion;
+      if (status && ['ACTIVE', 'PAUSED', 'ENDED'].includes(status)) eventUpdates.status = status;
+      if (startTime !== undefined) eventUpdates.start_time = startTime || null;
+      if (endTime !== undefined) eventUpdates.end_time = endTime || null;
+      if (isAutoScheduled !== undefined) eventUpdates.is_auto_scheduled = Boolean(isAutoScheduled);
+
+      tx.update(eventRef, eventUpdates);
+
+      // 3. Writes: Update All Prize Tiers if provided
+      if (Array.isArray(prizes)) {
+        for (const p of prizes) {
+          const slot = Number(p.slot_index ?? p.slotIndex);
+          if (slot >= 0 && slot < 8) {
+            const currentSnap = tierSnaps[slot];
+            if (currentSnap.exists) {
+              const tierUpdates: Record<string, any> = {};
+              if (p.name !== undefined) tierUpdates.name = String(p.name).trim();
+              if (p.is_enabled !== undefined) tierUpdates.is_enabled = Boolean(p.is_enabled);
+              if (p.total_quantity !== undefined) {
+                const totalQ = Math.max(0, Number(p.total_quantity));
+                tierUpdates.total_quantity = totalQ;
+                if (p.remaining_quantity !== undefined) {
+                  tierUpdates.remaining_quantity = Math.min(totalQ, Math.max(0, Number(p.remaining_quantity)));
+                }
+              }
+              if (p.probability_weight !== undefined) {
+                tierUpdates.probability_weight = Math.max(1, Number(p.probability_weight));
+              }
+              tx.update(tierRefs[slot], tierUpdates);
+            }
+          }
+        }
+      }
+    });
+
+    await logAudit(
+      req.admin!.username,
+      'SAVE_ALL_CONFIG',
+      `Lưu toàn bộ cấu hình sự kiện (${name || 'Không đổi'}) & 8 ô giải thưởng`,
+      req.ip || '127.0.0.1'
+    );
+
+    res.json({ success: true, message: 'Đã lưu toàn bộ cấu hình sự kiện và 8 ô giải thưởng thành công!' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
