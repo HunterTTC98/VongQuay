@@ -43,6 +43,7 @@ export interface Ticket {
   created_at: string;
   used_at?: string | null;
   used_by?: string | null;
+  assigned_to_email?: string | null;
 }
 
 export type ClaimStatus =
@@ -110,6 +111,8 @@ export interface AuditLog {
   details: string;
   ip_address: string;
   timestamp: string;
+  created_at?: string;
+  ip?: string;
 }
 
 export interface OccasionOption {

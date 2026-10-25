@@ -31,6 +31,11 @@ import {
   AuthenticatedRequest,
   checkClaimLookupRateLimit,
 } from './auth.ts';
+import {
+  validateConfessionSubmission,
+  DEFAULT_SCHOOL_BLACKLIST,
+  moderateConfessionTextSync,
+} from './moderation.ts';
 
 const router = express.Router();
 
@@ -1979,6 +1984,64 @@ router.post('/admin/save-all-config', requireAdmin, async (req: AuthenticatedReq
     res.json({ success: true, message: 'Đã lưu toàn bộ cấu hình sự kiện và 8 ô giải thưởng thành công!' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Kiểm duyệt & gửi bài Confession (Phương án A - Hard Reject Guard)
+ */
+router.post('/confessions', async (req: Request, res: Response) => {
+  try {
+    const { content, alias, recipientTag, category } = req.body;
+    if (!content || typeof content !== 'string' || content.trim().length < 8) {
+      res.status(400).json({
+        success: false,
+        error: 'Lời nhắn confession cần ít nhất 8 ký tự để được nhận lượt quay!',
+      });
+      return;
+    }
+
+    // Phương án A: Chặn cứng tuyệt đối bất kỳ từ viết tắt/tục tĩu nào
+    const validation = validateConfessionSubmission(content.trim(), DEFAULT_SCHOOL_BLACKLIST);
+    if (!validation.isValid) {
+      res.status(400).json({
+        success: false,
+        code: 'REJECTED_PROFANITY',
+        error: validation.errorMessage,
+        matched_words: validation.matchedWords,
+        moderation: validation.moderation,
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Gửi Confession thành công và được phê duyệt!',
+      data: {
+        id: `cf-${Date.now()}`,
+        alias: alias || 'Ẩn danh Bách Khoa',
+        recipientTag: recipientTag || 'Gửi Thầy Cô giáo kính yêu',
+        category: category || 'Tri Ân',
+        content: content.trim(),
+        likes: 1,
+        timeAgo: 'Vừa xong',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * Endpoint kiểm tra văn bản trực tiếp qua API
+ */
+router.post('/confessions/moderate', (req: Request, res: Response) => {
+  try {
+    const { content } = req.body;
+    const result = moderateConfessionTextSync(content || '', DEFAULT_SCHOOL_BLACKLIST, { strictMode: true });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

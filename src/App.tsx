@@ -18,6 +18,10 @@ import { UserProfileModal } from './components/UserProfileModal.tsx';
 import { GreetingCardStudio } from './components/GreetingCardStudio.tsx';
 import { StatusPopupModal, type StatusPopupData } from './components/StatusPopupModal.tsx';
 import { FallingPetals } from './components/FallingPetals.tsx';
+import { LiveMarqueeTicker } from './components/LiveMarqueeTicker.tsx';
+import { EventRoadmap } from './components/EventRoadmap.tsx';
+import { ConfessionStation } from './components/ConfessionStation.tsx';
+import { BottomNav, NavTabId } from './components/BottomNav.tsx';
 import { logoutFirebase } from './firebase.ts';
 import { soundManager } from './utils/audio.ts';
 import {
@@ -141,6 +145,8 @@ export default function App() {
   }, [theme]);
 
   const [activeSection, setActiveSection] = useState<'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP'>('WHEEL');
+  const [mobileTab, setMobileTab] = useState<NavTabId>('WHEEL');
+  const [bonusSpins, setBonusSpins] = useState<number>(0);
 
   const handleSelectSection = (section: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP') => {
     setActiveSection(section);
@@ -153,6 +159,40 @@ export default function App() {
     } else if (section === 'LOOKUP') {
       setLookupInitialCode('');
       setIsLookupModalOpen(true);
+    }
+  };
+
+  const handleBottomTabChange = (tab: NavTabId) => {
+    setMobileTab(tab);
+    if (tab === 'WHEEL') {
+      document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (tab === 'CONFESSION') {
+      document.getElementById('confession-station')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (tab === 'TIMELINE') {
+      document.getElementById('event-roadmap')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (tab === 'CARDS') {
+      document.getElementById('greeting-card-studio')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (tab === 'LOOKUP') {
+      if (currentUser) {
+        setIsUserProfileOpen(true);
+      } else {
+        setLookupInitialCode('');
+        setIsLookupModalOpen(true);
+      }
+    }
+  };
+
+  const handleEarnSpinFromConfession = () => {
+    setBonusSpins((prev) => prev + 1);
+    if (currentUser) {
+      const updatedUser = {
+        ...currentUser,
+        freeSpinsRemaining: (currentUser.freeSpinsRemaining || 0) + 1,
+      };
+      setCurrentUser(updatedUser);
+      try {
+        localStorage.setItem('school_wheel_student', JSON.stringify(updatedUser));
+      } catch {}
     }
   };
 
@@ -651,15 +691,25 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-12">
+      <main className="flex-1 pb-28 md:pb-16">
         {isAdminView && adminToken && currentAdmin ? (
           <AdminDashboard
             adminToken={adminToken}
             adminUser={currentAdmin}
             onRefreshPublicEvent={fetchEventConfig}
+            onExitToPublic={() => setIsAdminView(false)}
           />
         ) : (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 sm:pt-5 space-y-6 sm:space-y-8">
+            {/* Real-time Winners & Confessions Marquee Ticker */}
+            <LiveMarqueeTicker
+              theme={theme}
+              onItemClick={() => {
+                document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+            />
+
+            {/* Event Welcome & Key Controls */}
             <EventWelcome
               event={event}
               currentUser={currentUser}
@@ -669,6 +719,18 @@ export default function App() {
               }}
               activeSection={activeSection}
               onSelectSection={handleSelectSection}
+            />
+
+            {/* 3D Gamified Event Roadmap / Horizontal Timeline with Real-time Countdown */}
+            <EventRoadmap
+              theme={theme}
+              onSelectEvent={() => {
+                document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              onNavigateSection={(sec) => {
+                if (sec === 'WHEEL') document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
+                else if (sec === 'CARDS') document.getElementById('greeting-card-studio')?.scrollIntoView({ behavior: 'smooth' });
+              }}
             />
 
             {/* Lucky Wheel & Spin Controls Layout */}
@@ -717,6 +779,13 @@ export default function App() {
                 />
               </div>
             </div>
+
+            {/* Confession & Growth Mission Station (Gửi 1 confession = Nhận +1 lượt quay) */}
+            <ConfessionStation
+              theme={theme}
+              onEarnSpin={handleEarnSpinFromConfession}
+              onShowToast={showToast}
+            />
 
             {/* Prize Matrix Showcase */}
             <div
@@ -914,6 +983,16 @@ export default function App() {
         }}
         onSwitchToAdmin={() => setIsAdminView(true)}
       />
+
+      {/* Mobile App Docked Bottom Navigation Bar */}
+      {!isAdminView && (
+        <BottomNav
+          activeTab={mobileTab}
+          onTabChange={handleBottomTabChange}
+          theme={theme}
+          freeSpins={(currentUser?.freeSpinsRemaining || 0) + bonusSpins}
+        />
+      )}
 
       {/* Concise Feedback & Result Popup Modal (Dismissible on Backdrop Click) */}
       <StatusPopupModal

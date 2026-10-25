@@ -173,12 +173,21 @@ const CURATED_WISHES: Record<string, Record<string, string[]>> = {
   },
 };
 
+// Curated 100% Vietnamese Error-Free Fonts
+export const VIETNAMESE_FONTS = [
+  { id: 'montserrat', name: 'Montserrat', family: "'Montserrat', sans-serif", desc: 'Hiện đại, đậm nét' },
+  { id: 'inter', name: 'Inter', family: "'Inter', sans-serif", desc: 'Sắc nét, chuẩn Web' },
+  { id: 'playfair', name: 'Playfair Display', family: "'Playfair Display', Georgia, serif", desc: 'Thanh lịch, nghệ thuật' },
+  { id: 'roboto', name: 'Roboto', family: "'Roboto', sans-serif", desc: 'Mượt mà, dễ nhìn' },
+];
+
 export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
   currentOccasionId = '20_11',
 }) => {
   const [selectedOccasion, setSelectedOccasion] = useState(currentOccasionId);
   const [selectedRecipient, setSelectedRecipient] = useState('TEACHER');
   const [selectedThemeId, setSelectedThemeId] = useState('TRADITIONAL_RED');
+  const [selectedFontId, setSelectedFontId] = useState('montserrat');
   const [recipientName, setRecipientName] = useState('Thầy Cô kính yêu');
   const [senderName, setSenderName] = useState('Học sinh Bách Khoa Sầm Sơn');
   const [customWish, setCustomWish] = useState('');
@@ -191,6 +200,12 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
   const activeTheme = useMemo(
     () => CARD_THEMES.find((t) => t.id === selectedThemeId) || CARD_THEMES[0],
     [selectedThemeId]
+  );
+
+  // Active font object
+  const activeFont = useMemo(
+    () => VIETNAMESE_FONTS.find((f) => f.id === selectedFontId) || VIETNAMESE_FONTS[0],
+    [selectedFontId]
   );
 
   // Active occasion object
@@ -299,18 +314,18 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
     // 5. Header: School Crest Tag
     ctx.textAlign = 'center';
     ctx.fillStyle = activeTheme.accentColor;
-    ctx.font = '800 13px "Be Vietnam Pro", sans-serif';
+    ctx.font = '800 13px "Montserrat", Arial, sans-serif';
     ctx.letterSpacing = '4px';
     ctx.fillText('TRƯỜNG TC CÔNG NGHIỆP BÁCH KHOA SẦM SƠN', width / 2, 74);
 
-    ctx.font = '600 11px "Be Vietnam Pro", sans-serif';
+    ctx.font = '600 11px "Inter", Arial, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
     ctx.letterSpacing = '2px';
     ctx.fillText('BÁCH KHOA EVENTS · THIỆP ĐIỆN TỬ TRI ÂN', width / 2, 94);
 
     // 6. Occasion Badge Pill (Modern luxury style)
     const occasionText = `✦ MỪNG ${activeOccasion.name.toUpperCase()} ✦`;
-    ctx.font = '800 15px "Be Vietnam Pro", sans-serif';
+    ctx.font = '800 15px "Montserrat", Arial, sans-serif';
     const pillWidth = Math.max(280, ctx.measureText(occasionText).width + 50);
     const pillHeight = 36;
     const pillX = width / 2 - pillWidth / 2;
@@ -336,7 +351,7 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
     ctx.save();
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.font = '900 150px Georgia, serif';
+    ctx.font = '900 150px "Playfair Display", Georgia, serif';
     ctx.fillStyle = 'rgba(251, 191, 36, 0.08)';
     ctx.fillText('“', 110, 180);
     ctx.restore();
@@ -344,7 +359,7 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
     // 8. Recipient Greeting
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'italic 700 24px Georgia, serif';
+    ctx.font = 'italic 700 24px "Playfair Display", Georgia, serif';
     ctx.fillText(`Kính gửi: ${recipientName.trim() || 'Bạn thương mến'}`, width / 2, 215);
 
     // Subtle divider
@@ -355,10 +370,10 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    // 9. Wish Body (Formatted with optimal typography)
+    // 9. Wish Body (Formatted with user-chosen Vietnamese font)
     const wishText = customWish || currentWishList[0] || 'Chúc bạn một ngày lễ ngập tràn niềm vui!';
     ctx.fillStyle = '#f8fafc';
-    ctx.font = '400 20px "Be Vietnam Pro", sans-serif';
+    ctx.font = `500 20px ${activeFont.family}`;
     ctx.letterSpacing = '0.3px';
 
     const maxTextWidth = 720;
@@ -387,12 +402,12 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
     // 10. Sender Signature Box (Bottom Right)
     ctx.textAlign = 'right';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
-    ctx.font = '600 13px "Be Vietnam Pro", sans-serif';
+    ctx.font = '600 13px "Inter", Arial, sans-serif';
     ctx.letterSpacing = '1px';
     ctx.fillText('NGƯỜI GỬI THÂN TÌNH', width - 90, height - 128);
 
     ctx.fillStyle = activeTheme.accentColor;
-    ctx.font = '700 21px Georgia, serif';
+    ctx.font = '700 21px "Playfair Display", Georgia, serif';
     ctx.fillText(senderName.trim() || 'Học sinh Bách Khoa Sầm Sơn', width - 90, height - 100);
 
     // 11. Red Lacquer Traditional Seal Stamp (Bottom Left)
@@ -419,24 +434,32 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fef08a';
-    ctx.font = '900 11px "Be Vietnam Pro", sans-serif';
+    ctx.font = '900 11px "Montserrat", Arial, sans-serif';
     ctx.fillText(activeTheme.sealText, sealX, sealY - 7);
-    ctx.font = '700 8px "Be Vietnam Pro", sans-serif';
+    ctx.font = '700 8px "Montserrat", Arial, sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.fillText('BÁCH KHOA', sealX, sealY + 8);
     ctx.restore();
   };
 
   useEffect(() => {
-    renderCardToCanvas();
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      document.fonts.ready.then(() => {
+        renderCardToCanvas();
+      });
+    } else {
+      renderCardToCanvas();
+    }
   }, [
     selectedOccasion,
     selectedRecipient,
     selectedThemeId,
+    selectedFontId,
     recipientName,
     senderName,
     customWish,
     activeTheme,
+    activeFont,
     activeOccasion,
   ]);
 
@@ -626,11 +649,43 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
             </div>
           </div>
 
+          {/* Vietnamese Typography Font Chooser */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                3. Font chữ tiếng Việt chuẩn:
+              </label>
+              <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                ✓ 100% Không lỗi dấu
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {VIETNAMESE_FONTS.map((font) => (
+                <button
+                  key={font.id}
+                  type="button"
+                  onClick={() => setSelectedFontId(font.id)}
+                  className={`p-2.5 rounded-xl text-left border transition ${
+                    selectedFontId === font.id
+                      ? 'border-rose-600 ring-2 ring-rose-500/40 bg-rose-50/70 text-rose-950 font-bold'
+                      : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold">{font.name}</span>
+                    {selectedFontId === font.id && <span className="text-rose-600 text-xs">●</span>}
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">{font.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Curated Wish List & Edit */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                3. Lời chúc tiếng Việt:
+                4. Lời chúc tiếng Việt:
               </label>
               <button
                 type="button"
