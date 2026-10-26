@@ -1,13 +1,13 @@
 import React from 'react';
 import { EventConfig, StudentUser, PRESET_OCCASIONS } from '../types/index.ts';
-import { Sparkles, LogIn, Gift, Trophy, Heart, Search, Disc } from 'lucide-react';
+import { Sparkles, LogIn, Gift, Trophy, Heart, Search, Disc, MessageSquareHeart } from 'lucide-react';
 
 interface EventWelcomeProps {
   event: EventConfig | null;
   currentUser: StudentUser | null;
   onOpenAuth: () => void;
-  activeSection: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP';
-  onSelectSection: (section: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP') => void;
+  activeSection: 'WHEEL' | 'CONFESSION' | 'CARDS' | 'PRIZES' | 'LOOKUP';
+  onSelectSection: (section: 'WHEEL' | 'CONFESSION' | 'CARDS' | 'PRIZES' | 'LOOKUP') => void;
 }
 
 function getOccasionLabel(occasionId?: string) {
@@ -86,6 +86,19 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
         >
           <Disc className="w-4 h-4" />
           <span>Vòng Quay May Mắn</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onSelectSection('CONFESSION')}
+          className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
+            activeSection === 'CONFESSION'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
+              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+          }`}
+        >
+          <MessageSquareHeart className="w-4 h-4" />
+          <span>Trạm Confession</span>
         </button>
 
         <button

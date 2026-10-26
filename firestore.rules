@@ -37,6 +37,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Public confessions: readable by everyone, modifications restricted to backend server transactions
+    match /confessions/{confessionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny-all catch-all rule
     match /{document=**} {
       allow read, write: if false;

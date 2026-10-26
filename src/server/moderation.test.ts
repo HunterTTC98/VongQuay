@@ -47,6 +47,30 @@ test('Text Moderation - Clean wholesome confession passes with APPROVED', async 
   assert.equal(result.suggested_action, 'APPROVED');
 });
 
+test('Tone Awareness - User exact sentence with "đeo", "20/10", "tự tin" is VALID and clean', () => {
+  const content = 'Hãy đeo lên mình nụ cười tự tin và bước ra thế giới. Chúc bạn ngày 20/10 tràn ngập sự tự tin, luôn yêu quý từng nét đẹp mộc mạc và chân thực của bản thân.';
+  const validation = validateConfessionSubmission(content, DEFAULT_SCHOOL_BLACKLIST);
+
+  assert.equal(validation.isValid, true);
+  assert.equal(validation.matchedWords.length, 0);
+  assert.equal(validation.moderation.is_clean, true);
+  assert.equal(validation.moderation.highest_level_detected, 0);
+});
+
+test('Tone Awareness - Legitimate Vietnamese words (đeo, các, buổi, đi) are never blocked', () => {
+  const samples = [
+    'Các thầy cô và các bạn hãy đeo ba lô lên đi cắm trại vào buổi sáng',
+    'Em xin kính chúc các thầy cô một buổi sáng thật nhiều năng lượng',
+    'Chúng mình cùng nhau đi thi học sinh giỏi nhé các bạn',
+  ];
+
+  for (const text of samples) {
+    const validation = validateConfessionSubmission(text, DEFAULT_SCHOOL_BLACKLIST);
+    assert.equal(validation.isValid, true, `False positive detected on: "${text}"`);
+    assert.equal(validation.moderation.is_clean, true);
+  }
+});
+
 test('Text Moderation - Detects punctuation-separated evasion (đ.m, v_c_l)', async () => {
   const customBlacklist: BlacklistItem[] = [
     { word: 'đm', level: 2 },

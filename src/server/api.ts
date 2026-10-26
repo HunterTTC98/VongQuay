@@ -1987,53 +1987,10 @@ router.post('/admin/save-all-config', requireAdmin, async (req: AuthenticatedReq
   }
 });
 
-/**
- * Kiểm duyệt & gửi bài Confession (Phương án A - Hard Reject Guard)
- */
-router.post('/confessions', async (req: Request, res: Response) => {
-  try {
-    const { content, alias, recipientTag, category } = req.body;
-    if (!content || typeof content !== 'string' || content.trim().length < 8) {
-      res.status(400).json({
-        success: false,
-        error: 'Lời nhắn confession cần ít nhất 8 ký tự để được nhận lượt quay!',
-      });
-      return;
-    }
 
-    // Phương án A: Chặn cứng tuyệt đối bất kỳ từ viết tắt/tục tĩu nào
-    const validation = validateConfessionSubmission(content.trim(), DEFAULT_SCHOOL_BLACKLIST);
-    if (!validation.isValid) {
-      res.status(400).json({
-        success: false,
-        code: 'REJECTED_PROFANITY',
-        error: validation.errorMessage,
-        matched_words: validation.matchedWords,
-        moderation: validation.moderation,
-      });
-      return;
-    }
-
-    res.json({
-      success: true,
-      message: 'Gửi Confession thành công và được phê duyệt!',
-      data: {
-        id: `cf-${Date.now()}`,
-        alias: alias || 'Ẩn danh Bách Khoa',
-        recipientTag: recipientTag || 'Gửi Thầy Cô giáo kính yêu',
-        category: category || 'Tri Ân',
-        content: content.trim(),
-        likes: 1,
-        timeAgo: 'Vừa xong',
-      },
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
 
 /**
- * Endpoint kiểm tra văn bản trực tiếp qua API
+ * Endpoint kiểm tra văn bản trực tiếp qua API (dùng thuật toán Moderation Engine)
  */
 router.post('/confessions/moderate', (req: Request, res: Response) => {
   try {
@@ -2042,6 +1999,422 @@ router.post('/confessions/moderate', (req: Request, res: Response) => {
     res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * ============================================================================
+ * FIRESTORE CONFESSIONS BACKEND (PUBLIC & ADMIN MODERATION)
+ * ============================================================================
+ */
+interface ConfessionDoc {
+  id: string;
+  content: string;
+  alias: string;
+  recipientTag: string;
+  category: string;
+  hashtag: string;
+  likes: number;
+  createdAt: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  editedContent?: string;
+  moderatedBy?: string;
+  moderatedAt?: string;
+}
+
+const SEED_CONFESSIONS_RAW: ConfessionDoc[] = [
+  {
+    id: 'cf-101',
+    content: 'Em kính chúc cô Thu Trang khoa Công nghệ thông tin luôn dồi dào sức khỏe và hạnh phúc! Cảm ơn cô đã tận tình hướng dẫn bọn em đồ án tốt nghiệp.',
+    alias: 'Học sinh K23-CNTT',
+    recipientTag: 'Gửi Cô Thu Trang (CNTT)',
+    category: 'Tri Ân',
+    hashtag: '#TriAnThayCo20_11',
+    likes: 24,
+    createdAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    status: 'APPROVED',
+    moderatedBy: 'Admin Hệ Thống',
+    moderatedAt: new Date(Date.now() - 14 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'cf-102',
+    content: 'Đề thi thực hành lắp ráp mạch điện tử hôm nay khó vcl, em cày cuốc cả đêm mà vẫn run rẩy.',
+    alias: 'Ẩn danh #342',
+    recipientTag: 'Gửi Thầy Hùng (Điện Tử)',
+    category: 'Kỷ Niệm',
+    hashtag: '#BachKhoaEvents',
+    likes: 3,
+    createdAt: new Date(Date.now() - 32 * 60 * 1000).toISOString(),
+    status: 'PENDING',
+  },
+  {
+    id: 'cf-103',
+    content: 'Nhìn mấy bạn lớp K24 bên cơ khí nhảy dân vũ hôm khai giảng đáng yêu xỉu. Chúc trường mình ngày càng phát triển rực rỡ!',
+    alias: 'Nữ sinh K24',
+    recipientTag: 'Gửi Toàn thể học sinh BK',
+    category: 'Động Lực',
+    hashtag: '#LoiChuc20_11',
+    likes: 41,
+    createdAt: new Date(Date.now() - 48 * 60 * 1000).toISOString(),
+    status: 'APPROVED',
+    moderatedBy: 'Admin Hệ Thống',
+    moderatedAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'cf-104',
+    content: 'thay day rat tam huyet e rat thich hoc tiet cua thay, chuc thay luon vui ve va cong tac tot nhe thay oi',
+    alias: 'Nam sinh lớp K23',
+    recipientTag: 'Gửi Thầy Tuấn Anh',
+    category: 'Tri Ân',
+    hashtag: '#TriAnThayCo20_11',
+    likes: 12,
+    createdAt: new Date(Date.now() - 75 * 60 * 1000).toISOString(),
+    status: 'PENDING',
+  },
+  {
+    id: 'cf-105',
+    content: 'Bác bảo vệ trường mình dễ thương d_m lúc nào cũng dắt xe hộ học sinh nhiệt tình. Chúc bác luôn khỏe mạnh ạ!',
+    alias: 'Ẩn danh K22',
+    recipientTag: 'Gửi Bác Bảo Vệ Cổng Trường',
+    category: 'Tri Ân',
+    hashtag: '#GuongSangBachKhoa',
+    likes: 5,
+    createdAt: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
+    status: 'PENDING',
+  },
+  {
+    id: 'cf-106',
+    content: 'Gửi người ấy ở bàn thứ 3 dãy ngoài phòng thực hành vi tính: Nụ cười của bạn làm mình mất tập trung cả buổi học.',
+    alias: 'Crush bàn bên',
+    recipientTag: 'Gửi Bạn nữ áo trắng',
+    category: 'Tỏ Tình',
+    hashtag: '#BachKhoaLove',
+    likes: 18,
+    createdAt: new Date(Date.now() - 180 * 60 * 1000).toISOString(),
+    status: 'APPROVED',
+    moderatedBy: 'Admin Hệ Thống',
+    moderatedAt: new Date(Date.now() - 170 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'cf-107',
+    content: 'Nhân ngày 20/11, tập thể lớp K23 chúc toàn thể Ban Giám Hiệu và quý Thầy Cô trường Bách Khoa Sầm Sơn luôn tràn đầy nhiệt huyết.',
+    alias: 'Tập thể K23-ĐTT',
+    recipientTag: 'Gửi Ban Giám Hiệu',
+    category: 'Tri Ân',
+    hashtag: '#TriAnThayCo20_11',
+    likes: 56,
+    createdAt: new Date(Date.now() - 240 * 60 * 1000).toISOString(),
+    status: 'APPROVED',
+    moderatedBy: 'Admin Hệ Thống',
+    moderatedAt: new Date(Date.now() - 200 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'cf-108',
+    content: 'Thằng kia nhìn ngứa mắt v_c_l, ra cổng trường nói chuyện đ.m',
+    alias: 'Học sinh cá biệt',
+    recipientTag: 'Gửi Ẩn danh',
+    category: 'Kỷ Niệm',
+    hashtag: '#DramaSchool',
+    likes: 0,
+    createdAt: new Date(Date.now() - 300 * 60 * 1000).toISOString(),
+    status: 'REJECTED',
+    moderatedBy: 'Admin Hệ Thống',
+    moderatedAt: new Date(Date.now() - 280 * 60 * 1000).toISOString(),
+  },
+];
+
+/**
+ * Seed initial confessions to Firestore if empty
+ */
+async function ensureConfessionsSeeded(db: any) {
+  const existingSnap = await db.collection('confessions').limit(1).get();
+  if (existingSnap.empty) {
+    for (const item of SEED_CONFESSIONS_RAW) {
+      await db.collection('confessions').doc(item.id).set(item);
+    }
+  }
+}
+
+/**
+ * Helper to enrich confession document with real-time AI moderation recommendation
+ */
+function enrichWithModeration(doc: ConfessionDoc) {
+  const modResult = moderateConfessionTextSync(doc.content, DEFAULT_SCHOOL_BLACKLIST, { strictMode: true });
+  let aiRec: { action: 'APPROVE' | 'REJECT' | 'REVIEW'; reason: string; level: number };
+
+  if (!modResult.is_clean) {
+    const words = modResult.matched_words.join(', ').toUpperCase();
+    aiRec = {
+      action: 'REJECT',
+      reason: `Hệ thống khuyến nghị: Bác bỏ do chứa từ tục tĩu / viết tắt [${words}]`,
+      level: modResult.highest_level_detected,
+    };
+  } else if (doc.content.length < 20 || /[a-z0-9_]{15,}/.test(doc.content)) {
+    aiRec = {
+      action: 'REVIEW',
+      reason: 'Hệ thống khuyến nghị: Cần xem xét - Nội dung ngắn hoặc có teencode',
+      level: 1,
+    };
+  } else {
+    aiRec = {
+      action: 'APPROVE',
+      reason: 'Hệ thống khuyến nghị: Phê duyệt - Lời chúc ý nghĩa, văn minh & chuẩn mực',
+      level: 0,
+    };
+  }
+
+  return {
+    ...doc,
+    moderation: modResult,
+    aiRecommendation: aiRec,
+  };
+}
+
+/**
+ * GET /api/confessions
+ * Lấy danh sách Confession đã được duyệt (APPROVED) từ Firestore
+ */
+router.get('/confessions', async (req: Request, res: Response) => {
+  try {
+    const db = await getDb();
+    await ensureConfessionsSeeded(db);
+
+    const snap = await db.collection('confessions').get();
+    const all = snap.docs.map((d) => d.data() as ConfessionDoc);
+
+    // Filter approved and sort newest first
+    const approved = all
+      .filter((c) => c.status === 'APPROVED')
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json({
+      success: true,
+      confessions: approved,
+      total: approved.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Lỗi khi tải danh sách confession từ CSDL' });
+  }
+});
+
+/**
+ * POST /api/confessions
+ * Gửi một bài viết confession mới.
+ * CHẶN TUYỆT ĐỐI từ cấm, lưu trực tiếp vào CSDL Firestore.
+ */
+router.post('/confessions', async (req: Request, res: Response) => {
+  try {
+    const { content, alias, recipientTag, category, hashtag } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length < 8) {
+      res.status(400).json({
+        success: false,
+        error: 'Lời nhắn confession cần ít nhất 8 ký tự để lưu vào hệ thống!',
+      });
+      return;
+    }
+
+    const cleanContent = content.trim();
+
+    // 1. Kiểm duyệt nghiêm ngặt bằng thuật toán Moderation Engine
+    const validation = validateConfessionSubmission(cleanContent, DEFAULT_SCHOOL_BLACKLIST);
+    if (!validation.isValid) {
+      res.status(400).json({
+        success: false,
+        error: validation.errorMessage || 'Nội dung chứa từ ngữ không phù hợp học đường.',
+        matchedWords: validation.matchedWords,
+        highest_level_detected: validation.moderation.highest_level_detected,
+      });
+      return;
+    }
+
+    const db = await getDb();
+    const docId = `cf-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const nowIso = new Date().toISOString();
+
+    const newConfession: ConfessionDoc = {
+      id: docId,
+      content: cleanContent,
+      alias: alias?.trim() || `#BKS_${Math.floor(100 + Math.random() * 900)}`,
+      recipientTag: recipientTag?.trim() || 'Gửi Thầy Cô giáo kính yêu',
+      category: category?.trim() || 'Tri Ân',
+      hashtag: hashtag?.trim() || '#TriAnThayCo20_11',
+      likes: 1,
+      createdAt: nowIso,
+      status: 'PENDING', // Cần Ban Quản Trị phê duyệt trước khi hiển thị công khai trên bảng tin
+    };
+
+    // 2. Lưu trực tiếp vào CSDL Firestore
+    await db.collection('confessions').doc(docId).set(newConfession);
+
+    res.json({
+      success: true,
+      message: 'Gửi lời chúc thành công! Lời nhắn của bạn đã được lưu vào hệ thống và đang chờ Ban Quản Trị phê duyệt trước khi hiển thị công khai.',
+      confession: newConfession,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err.message || 'Lỗi lưu trữ confession vào cơ sở dữ liệu',
+    });
+  }
+});
+
+/**
+ * POST /api/confessions/:id/like
+ * Tăng lượt thả tim cho confession trên Firestore
+ */
+router.post('/confessions/:id/like', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const db = await getDb();
+    const docRef = db.collection('confessions').doc(id);
+
+    let updatedLikes = 1;
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      if (!snap.exists) {
+        throw new Error('Không tìm thấy bài viết Confession trong CSDL');
+      }
+      const current = snap.data() as ConfessionDoc;
+      updatedLikes = (Number(current.likes) || 0) + 1;
+      tx.update(docRef, { likes: updatedLikes });
+    });
+
+    res.json({
+      success: true,
+      id,
+      likes: updatedLikes,
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, error: err.message || 'Lỗi khi thả tim confession' });
+  }
+});
+
+/**
+ * GET /api/admin/confessions/moderation-queue
+ * Lấy danh sách hàng đợi kiểm duyệt thực tế từ CSDL Firestore và số liệu thống kê
+ */
+router.get('/admin/confessions/moderation-queue', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const db = await getDb();
+    await ensureConfessionsSeeded(db);
+
+    const snap = await db.collection('confessions').get();
+    const rawList = snap.docs.map((d) => d.data() as ConfessionDoc);
+
+    // Sắp xếp bài viết mới nhất lên trước
+    rawList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Enrich with dynamic moderation and AI recommendation
+    const queue = rawList.map(enrichWithModeration);
+
+    const pendingCount = queue.filter((c) => c.status === 'PENDING').length;
+    const approvedTodayCount = queue.filter((c) => c.status === 'APPROVED').length;
+    const rejectedCount = queue.filter((c) => c.status === 'REJECTED').length;
+    const totalCount = queue.length;
+
+    res.json({
+      success: true,
+      stats: {
+        pendingCount,
+        approvedTodayCount,
+        rejectedCount,
+        totalCount,
+        cleanRate: totalCount > 0 ? Math.round((approvedTodayCount / totalCount) * 100) : 100,
+      },
+      queue,
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Lỗi khi tải hàng đợi kiểm duyệt từ CSDL' });
+  }
+});
+
+/**
+ * POST /api/admin/confessions/:id/moderate
+ * Duyệt nhanh (A), Từ chối (R) hoặc Sửa nhanh (E) - Cập nhật trực tiếp CSDL Firestore & Audit Logs
+ */
+router.post('/admin/confessions/:id/moderate', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { action, editedContent, note } = req.body;
+
+    const db = await getDb();
+    const docRef = db.collection('confessions').doc(id);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      res.status(404).json({ success: false, error: 'Không tìm thấy bài viết Confession trong CSDL' });
+      return;
+    }
+
+    const currentDoc = snap.data() as ConfessionDoc;
+    const adminUsername = req.admin?.username || 'Moderator';
+    const nowIso = new Date().toISOString();
+
+    const updates: Partial<ConfessionDoc> = {
+      moderatedBy: adminUsername,
+      moderatedAt: nowIso,
+    };
+
+    if (action === 'APPROVE') {
+      updates.status = 'APPROVED';
+    } else if (action === 'REJECT') {
+      updates.status = 'REJECTED';
+    } else if (action === 'EDIT_AND_APPROVE') {
+      if (!editedContent || typeof editedContent !== 'string' || editedContent.trim().length < 5) {
+        res.status(400).json({ success: false, error: 'Nội dung chỉnh sửa không hợp lệ (tối thiểu 5 ký tự)' });
+        return;
+      }
+      updates.editedContent = editedContent.trim();
+      updates.content = editedContent.trim();
+      updates.status = 'APPROVED';
+    } else {
+      res.status(400).json({ success: false, error: 'Hành động kiểm duyệt không hợp lệ' });
+      return;
+    }
+
+    // Ghi thay đổi vào Firestore
+    await docRef.update(updates);
+
+    // Ghi nhật ký quản trị
+    await logAudit(
+      adminUsername,
+      `CONFESSION_${action}`,
+      `Kiểm duyệt bài [${id}] - Hành động: ${action}${note ? ` (Ghi chú: ${note})` : ''}`,
+      req.ip || '127.0.0.1'
+    );
+
+    const updatedDoc = {
+      ...currentDoc,
+      ...updates,
+    };
+
+    // Lấy lại thống kê cập nhật từ Firestore
+    const allSnap = await db.collection('confessions').get();
+    const allDocs = allSnap.docs.map((d) => d.data() as ConfessionDoc);
+    const pendingCount = allDocs.filter((c) => c.status === 'PENDING').length;
+    const approvedTodayCount = allDocs.filter((c) => c.status === 'APPROVED').length;
+    const rejectedCount = allDocs.filter((c) => c.status === 'REJECTED').length;
+
+    res.json({
+      success: true,
+      message:
+        action === 'APPROVE'
+          ? 'Đã duyệt bài viết thành công'
+          : action === 'REJECT'
+          ? 'Đã từ chối bài viết thành công'
+          : 'Đã sửa và duyệt bài viết thành công',
+      item: enrichWithModeration(updatedDoc),
+      stats: {
+        pendingCount,
+        approvedTodayCount,
+        rejectedCount,
+        totalCount: allDocs.length,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Lỗi cập nhật kiểm duyệt vào CSDL' });
   }
 });
 

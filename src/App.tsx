@@ -144,14 +144,15 @@ export default function App() {
     }
   }, [theme]);
 
-  const [activeSection, setActiveSection] = useState<'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP'>('WHEEL');
+  const [activeSection, setActiveSection] = useState<'WHEEL' | 'CONFESSION' | 'CARDS' | 'PRIZES' | 'LOOKUP'>('WHEEL');
   const [mobileTab, setMobileTab] = useState<NavTabId>('WHEEL');
-  const [bonusSpins, setBonusSpins] = useState<number>(0);
 
-  const handleSelectSection = (section: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP') => {
+  const handleSelectSection = (section: 'WHEEL' | 'CONFESSION' | 'CARDS' | 'PRIZES' | 'LOOKUP') => {
     setActiveSection(section);
     if (section === 'WHEEL') {
       document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
+    } else if (section === 'CONFESSION') {
+      document.getElementById('confession-station')?.scrollIntoView({ behavior: 'smooth' });
     } else if (section === 'CARDS') {
       document.getElementById('greeting-card-studio')?.scrollIntoView({ behavior: 'smooth' });
     } else if (section === 'PRIZES') {
@@ -179,20 +180,6 @@ export default function App() {
         setLookupInitialCode('');
         setIsLookupModalOpen(true);
       }
-    }
-  };
-
-  const handleEarnSpinFromConfession = () => {
-    setBonusSpins((prev) => prev + 1);
-    if (currentUser) {
-      const updatedUser = {
-        ...currentUser,
-        freeSpinsRemaining: (currentUser.freeSpinsRemaining || 0) + 1,
-      };
-      setCurrentUser(updatedUser);
-      try {
-        localStorage.setItem('school_wheel_student', JSON.stringify(updatedUser));
-      } catch {}
     }
   };
 
@@ -780,10 +767,9 @@ export default function App() {
               </div>
             </div>
 
-            {/* Confession & Growth Mission Station (Gửi 1 confession = Nhận +1 lượt quay) */}
+            {/* Confession Tri An Station (Luu tru CSDL Firestore) */}
             <ConfessionStation
               theme={theme}
-              onEarnSpin={handleEarnSpinFromConfession}
               onShowToast={showToast}
             />
 
@@ -990,7 +976,7 @@ export default function App() {
           activeTab={mobileTab}
           onTabChange={handleBottomTabChange}
           theme={theme}
-          freeSpins={(currentUser?.freeSpinsRemaining || 0) + bonusSpins}
+          freeSpins={currentUser?.freeSpinsRemaining || 0}
         />
       )}
 

@@ -210,6 +210,68 @@ export function moderateConfessionTextSync(
   const matchedWordsSet = new Set<string>();
   let highestLevel = 0;
 
+function isLegitimateVietnameseFalsePositive(
+  matchedText: string,
+  blacklistWord: string,
+  fullText: string = '',
+  startIndex: number = 0,
+  endIndex: number = 0
+): boolean {
+  const clean = matchedText.toLowerCase().replace(/[\s\._\-\*]/g, '');
+  const bw = blacklistWord.toLowerCase();
+
+  // 1. "đeo" (đeo nụ cười, đeo kính, đeo balo), "đèo" (con đèo, đèo bạn), "đẽo" vs "đéo" / "deo"
+  // "đeo" with plain 'e' or 'è' (thanh ngang, thanh huyền, thanh ngã) is legitimate Vietnamese!
+  // Only with acute accent 'é' (đéo) or leetspeak '3' is it vulgar.
+  if (['đéo', 'deo'].includes(bw)) {
+    // If it starts with 'đ' or 'd' followed by 'e', 'è', 'ẽ' and ends with 'o' without acute accent
+    if (/^[dđ]+[eèẽ]+o+$/i.test(clean) && !/[é3]/i.test(clean)) {
+      return true; // Legitimate Vietnamese: đeo lên, đeo kính, đeo nụ cười, con đèo
+    }
+    // Also if matched text literally equals "đeo" or starts with "đeo"
+    if (/^đeo$/i.test(matchedText.trim())) {
+      return true;
+    }
+  }
+
+  // 2. "các", "cúc", "cục", "cực" vs vulgar "cặc" / "cac" / "kac" / "kak"
+  if (['cặc', 'cac', 'kac', 'kak'].includes(bw)) {
+    if (/^[ckq]+[áắấ]+[ckq]+$/i.test(clean)) return true; // các (các bạn, các thầy cô)
+    if (/^[ckq]+[uúùủũụưứừửữự]+[ckq]+$/i.test(clean)) return true; // cúc, cục, cực
+  }
+
+  // 3. "buổi", "bùi" vs vulgar "buồi" / "buoi"
+  if (['buồi', 'buoi', 'bùi'].includes(bw)) {
+    if (/^b[uư]+[ổõỏ]+i+$/i.test(clean)) return true; // buổi (buổi học, buổi sáng)
+    if (/^b[uư]+i+$/i.test(clean) && !/buồi/i.test(clean)) return true; // bùi (bùi ngùi)
+  }
+
+  // 4. "lòng", "long", "lon nước" vs vulgar "lồn" / "lon" / "loz" / "lwn"
+  if (['lồn', 'lon', 'loz', 'lwn'].includes(bw)) {
+    if (/^l[oôòóỏõọồốổỗộơờớởỡợ]+ng+$/i.test(clean)) return true; // lòng, long
+    if (/^l[oôòóỏõọồốổỗộơờớởỡợ]+n+$/i.test(clean) && !/[ồô]/i.test(clean)) {
+      const surrounding = fullText.slice(Math.max(0, startIndex - 20), Math.min(fullText.length, endIndex + 20)).toLowerCase();
+      // Check if context relates to drinks/containers (lon nước, lon bia, lon sữa)
+      if (/nước|coca|pepsi|bia|sữa|trà|lon\s+nước|lon\s+coca|lon\s+bia/i.test(surrounding)) {
+        return true;
+      }
+    }
+  }
+
+  // 5. "đi" (đi học, đi chơi, bước đi), "đĩa", "địa" vs vulgar "đĩ"
+  if (['đĩ', 'di'].includes(bw)) {
+    // If matched text is "đi" (starts with đ/d, plain i without tilde 'ĩ')
+    if (/^[dđ]+i+$/i.test(clean) && !/[ĩ~]/i.test(clean)) {
+      return true; // Legitimate Vietnamese: đi học, đi làm, bước đi
+    }
+    if (/^[dđ]+[iíìỉị]+[aáàảãạeê]/i.test(clean)) {
+      return true; // đĩa, địa
+    }
+  }
+
+  return false;
+}
+
   // Scan content against each blacklisted word
   for (let i = 0; i < blacklist.length; i++) {
     const item = blacklist[i];
@@ -223,6 +285,14 @@ export function moderateConfessionTextSync(
       const matchText = match[0];
       const start = match.index;
       const end = start + matchText.length;
+
+      // Skip false positives on legitimate Vietnamese words
+      if (isLegitimateVietnameseFalsePositive(matchText, item.word, content, start, end)) {
+        if (match.index === regex.lastIndex) {
+          regex.lastIndex++;
+        }
+        continue;
+      }
 
       matches.push({
         start,
@@ -399,7 +469,7 @@ export function validateConfessionSubmission(
     const wordsDisplay = result.matched_words.map((w) => `"${w.toUpperCase()}"`).join(', ');
     return {
       isValid: false,
-      errorMessage: `Nội dung chứa từ ngữ/từ viết tắt không phù hợp học đường (${wordsDisplay}). Trường Bách Khoa yêu cầu giữ gìn sự trong sáng của tiếng Việt và nét đẹp văn hóa học đường. Vui lòng sửa lại lời nhắn văn minh để được nhận lượt quay!`,
+      errorMessage: `Nội dung chứa từ ngữ/từ viết tắt không phù hợp học đường (${wordsDisplay}). Trường Bách Khoa yêu cầu giữ gìn sự trong sáng của tiếng Việt và nét đẹp văn hóa học đường. Vui lòng sửa lại lời nhắn văn minh để được lưu vào bảng tin sự kiện!`,
       matchedWords: result.matched_words,
       moderation: result,
     };

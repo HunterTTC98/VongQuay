@@ -36,7 +36,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       id: 'CONFESSION',
       label: 'Confession',
       icon: <MessageSquareHeart className="w-5 h-5" />,
-      badge: '+1 Quay',
     },
     {
       id: 'TIMELINE',

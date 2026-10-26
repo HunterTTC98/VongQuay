@@ -1,17 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquareHeart,
-  Sparkles,
   Send,
   Heart,
   ShieldCheck,
-  RotateCw,
-  Gift,
-  Flame,
-  CheckCircle2,
   RefreshCw,
   Smile,
   AlertOctagon,
+  CheckCircle2,
+  Database,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -27,47 +24,16 @@ export interface ConfessionItem {
   content: string;
   likes: number;
   timeAgo: string;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
-
-const PRESET_CONFESSIONS: ConfessionItem[] = [
-  {
-    id: 'cf-1',
-    alias: 'Ẩn danh #BKS_342',
-    recipientTag: 'Gửi Thầy Chủ Nhiệm K15',
-    category: 'Tri Ân',
-    content: 'Cảm ơn Thầy đã luôn kiên nhẫn chỉ dạy chúng em từng dòng code và kỹ thuật thực hành. Chúc Thầy mùa 20/11 thật nhiều niềm vui và sức khỏe!',
-    likes: 24,
-    timeAgo: '10 phút trước',
-  },
-  {
-    id: 'cf-2',
-    alias: 'Ẩn danh #BKS_819',
-    recipientTag: 'Gửi bạn bàn bên lớp CNTT 2',
-    category: 'Tỏ Tình',
-    content: 'Mỗi ngày đi học chỉ mong được nhìn thấy nụ cười của cậu. Cố gắng cùng nhau đạt học bổng kỳ này nhé!',
-    likes: 41,
-    timeAgo: '25 phút trước',
-  },
-  {
-    id: 'cf-3',
-    alias: 'Ẩn danh #BKS_105',
-    recipientTag: 'Gửi Cô giáo Tiếng Anh',
-    category: 'Tri Ân',
-    content: 'Nhờ có cô truyền cảm hứng mà môn tiếng Anh chuyên ngành không còn là nỗi sợ của em nữa. Kính chúc Cô luôn trẻ trung và nhiệt huyết!',
-    likes: 18,
-    timeAgo: '40 phút trước',
-  },
-];
 
 interface ConfessionStationProps {
   theme?: 'dark' | 'light';
-  onEarnSpin: () => void;
   onShowToast: (type: 'info' | 'success' | 'error', message: string) => void;
 }
 
 export const ConfessionStation: React.FC<ConfessionStationProps> = ({
   theme = 'dark',
-  onEarnSpin,
   onShowToast,
 }) => {
   const isDark = theme === 'dark';
@@ -80,42 +46,105 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [violationError, setViolationError] = useState<string | null>(null);
   const [violatedWords, setViolatedWords] = useState<string[]>([]);
-  const [confessionList, setConfessionList] = useState<ConfessionItem[]>(PRESET_CONFESSIONS);
+  const [confessionList, setConfessionList] = useState<ConfessionItem[]>([]);
+  const [isLoadingFeed, setIsLoadingFeed] = useState(true);
 
   const generateNewAlias = () => {
     setAlias(`#BKS_${Math.floor(100 + Math.random() * 900)}`);
   };
 
-  const handleLike = (id: string) => {
-    setConfessionList((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, likes: c.likes + 1 } : c))
-    );
+  // Helper formatting relative time
+  const formatTimeAgo = (isoDateStr?: string) => {
+    if (!isoDateStr) return 'Vừa xong';
+    const diff = Math.floor((Date.now() - new Date(isoDateStr).getTime()) / 1000);
+    if (diff < 60) return 'Vừa xong';
+    if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+    return `${Math.floor(diff / 86400)} ngày trước`;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Load public approved confessions from real Firestore API
+  const fetchConfessions = async () => {
+    try {
+      setIsLoadingFeed(true);
+      const res = await fetch('/api/confessions');
+      if (!res.ok) {
+        throw new Error(`Mã lỗi HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.success && Array.isArray(data.confessions)) {
+        const mapped: ConfessionItem[] = data.confessions.map((item: any) => ({
+          id: item.id,
+          alias: item.alias || 'Ẩn danh BKS',
+          recipientTag: item.recipientTag || 'Gửi Thầy Cô giáo',
+          category: item.category || 'Tri Ân',
+          content: item.content,
+          likes: Number(item.likes) || 0,
+          timeAgo: formatTimeAgo(item.createdAt),
+        }));
+        setConfessionList(mapped);
+      }
+    } catch (err: any) {
+      console.error('[ConfessionStation] Failed to fetch real confessions:', err);
+    } finally {
+      setIsLoadingFeed(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchConfessions();
+  }, []);
+
+  // Handle like button with real backend Firestore call
+  const handleLike = async (id: string) => {
+    try {
+      // Optimistic update
+      setConfessionList((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, likes: c.likes + 1 } : c))
+      );
+
+      const res = await fetch(`/api/confessions/${encodeURIComponent(id)}/like`, {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Lỗi khi thả tim');
+      }
+      // Reconcile with exact server likes count
+      if (typeof data.likes === 'number') {
+        setConfessionList((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, likes: data.likes } : c))
+        );
+      }
+    } catch (err: any) {
+      onShowToast('error', err.message || 'Không thể thả tim, vui lòng thử lại');
+    }
+  };
+
+  // Submit confession with real Firestore backend integration
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setViolationError(null);
     setViolatedWords([]);
 
     const cleanMsg = message.trim();
     if (!cleanMsg || cleanMsg.length < 8) {
-      onShowToast('error', 'Lời nhắn confession cần ít nhất 8 ký tự để được nhận lượt quay!');
+      onShowToast('error', 'Lời nhắn confession cần ít nhất 8 ký tự!');
       return;
     }
 
-    // [PHƯƠNG ÁN A]: Chặn cứng tuyệt đối từ ngữ thô tục / từ viết tắt (VCL, VKL, ĐM...)
-    const validation = validateConfessionSubmission(cleanMsg, DEFAULT_SCHOOL_BLACKLIST);
-    if (!validation.isValid) {
-      setViolationError(validation.errorMessage || 'Nội dung chứa từ ngữ không phù hợp học đường.');
-      setViolatedWords(validation.matchedWords);
-      onShowToast('error', `Bị từ chối: Phát hiện từ viết tắt/tục tĩu ("${validation.matchedWords.map((w) => w.toUpperCase()).join(', ')}").`);
+    // Client-side quick filter check
+    const clientValidation = validateConfessionSubmission(cleanMsg, DEFAULT_SCHOOL_BLACKLIST);
+    if (!clientValidation.isValid) {
+      setViolationError(clientValidation.errorMessage || 'Nội dung chứa từ ngữ không phù hợp học đường.');
+      setViolatedWords(clientValidation.matchedWords);
+      onShowToast('error', `Bị từ chối: Phát hiện từ viết tắt/tục tĩu ("${clientValidation.matchedWords.map((w) => w.toUpperCase()).join(', ')}").`);
       return;
     }
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      // Create new confession
+    try {
       const targetLabel =
         recipientCategory === 'TEACHER'
           ? 'Gửi Thầy Cô giáo kính yêu'
@@ -125,42 +154,61 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
           ? 'Gửi Bạn bè / Tập thể lớp'
           : 'Gửi Mái trường Bách Khoa';
 
-      const newConfession: ConfessionItem = {
-        id: `cf-${Date.now()}`,
-        alias,
-        recipientTag: targetLabel,
-        category: tag,
-        content: cleanMsg,
-        likes: 1,
-        timeAgo: 'Vừa xong',
-      };
+      const res = await fetch('/api/confessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: cleanMsg,
+          alias,
+          recipientTag: targetLabel,
+          category: tag,
+          hashtag: `#${tag.replace(/\s+/g, '')}`,
+        }),
+      });
 
-      setConfessionList([newConfession, ...confessionList]);
+      const data = await res.json();
+
+      // CẤM THÔNG BÁO GIẢ NẾU BACKEND BỊ LỖI
+      if (!res.ok || !data.success) {
+        const errorMsg = data.error || 'Lỗi lưu trữ confession vào hệ thống';
+        setViolationError(errorMsg);
+        if (data.matchedWords && Array.isArray(data.matchedWords)) {
+          setViolatedWords(data.matchedWords);
+        }
+        onShowToast('error', errorMsg);
+        return;
+      }
+
+      // Đã lưu thành công vào CSDL Firestore ở trạng thái PENDING
+      // Tuyệt đối KHÔNG hiển thị lên bảng tin công khai trước khi Admin phê duyệt
       setMessage('');
-      setIsSubmitting(false);
       setSubmittedSuccess(true);
       setViolationError(null);
       setViolatedWords([]);
 
-      // Trigger Confetti Gamification Blast
+      // Confetti gamification celebration
       try {
         confetti({
-          particleCount: 80,
-          spread: 70,
+          particleCount: 70,
+          spread: 60,
           origin: { y: 0.7 },
           colors: ['#f43f5e', '#ec4899', '#fde047', '#38bdf8'],
         });
       } catch {
-        // Fallback safe
+        // Safe fallback
       }
 
-      // Award +1 spin to user
-      onEarnSpin();
-      onShowToast('success', 'Gửi Confession thành công! Bạn nhận ngay +1 LƯỢT QUAY MIỄN PHÍ! 🎉');
+      onShowToast('success', data.message || 'Gửi lời chúc thành công! Lời nhắn của bạn đang chờ Ban Quản Trị phê duyệt.');
 
-      // Reset success banner after 6 seconds
       setTimeout(() => setSubmittedSuccess(false), 6000);
-    }, 600);
+    } catch (err: any) {
+      setViolationError(err.message || 'Lỗi kết nối máy chủ khi gửi confession');
+      onShowToast('error', err.message || 'Không thể kết nối đến máy chủ.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -175,7 +223,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
       {/* Background radial accent glow */}
       <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-pink-500/15 via-rose-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-      {/* Gamification Mission Hero Banner */}
+      {/* Hero Banner */}
       <div
         className={`relative z-10 rounded-2xl p-4 sm:p-5 mb-6 border transition-all ${
           isDark
@@ -186,16 +234,16 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-600 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
-              <MessageSquareHeart className="w-6 h-6 animate-bounce" />
+              <MessageSquareHeart className="w-6 h-6 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white shadow-sm">
-                  NHIỆM VỤ TĂNG LƯỢT QUAY
+                  KHÔNG GIAN TRI ÂN
                 </span>
                 <span className="text-xs text-amber-400 font-bold flex items-center gap-1">
-                  <Flame className="w-3.5 h-3.5 fill-current" />
-                  Growth Hacking
+                  <Database className="w-3.5 h-3.5" />
+                  Lưu trữ CSDL Firestore
                 </span>
               </div>
               <h2
@@ -203,28 +251,28 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                   isDark ? 'text-white' : 'text-stone-900'
                 }`}
               >
-                Gửi 1 Confession Ẩn Danh = Nhận Ngay +1 Lượt Quay!
+                Trạm Lời Chúc & Confession Tri Ân Học Đường
               </h2>
               <p
                 className={`text-xs mt-0.5 ${
                   isDark ? 'text-rose-200/80' : 'text-stone-600'
                 }`}
               >
-                100% ẩn danh an toàn. Thỏa sức gửi gắm tâm tư, tri ân Thầy Cô hoặc crush và nhận vé quay liền tay.
+                100% ẩn danh an toàn. Thỏa sức gửi gắm tâm tư, tri ân Thầy Cô giáo và lưu giữ kỷ niệm tuổi học trò.
               </p>
             </div>
           </div>
 
           <div className="shrink-0 self-end sm:self-center">
             <div
-              className={`px-3 py-2 rounded-xl border flex items-center gap-2 text-xs font-black shadow-sm ${
+              className={`px-3 py-2 rounded-xl border flex items-center gap-2 text-xs font-bold shadow-sm ${
                 isDark
-                  ? 'bg-amber-400/20 border-amber-400 text-amber-300'
-                  : 'bg-rose-600 text-white border-rose-500'
+                  ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-300'
               }`}
             >
-              <RotateCw className="w-4 h-4 animate-spin" style={{ animationDuration: '8s' }} />
-              <span>+1 LƯỢT QUAY / LẦN</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>KIỂM DUYỆT TỰ ĐỘNG</span>
             </div>
           </div>
         </div>
@@ -232,7 +280,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
 
       {/* Main Grid: Form (Left) & Live Feed (Right) */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Streamlined Confession Form (7 cols) */}
+        {/* Left Column: Confession Form (7 cols) */}
         <div className="lg:col-span-7">
           <form
             onSubmit={handleSubmit}
@@ -379,7 +427,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                   setMessage(e.target.value);
                   if (violationError) setViolationError(null);
                 }}
-                placeholder="Nhập tâm tư, kỷ niệm hoặc lời chúc tri ân của bạn tại đây... (Nhận ngay +1 lượt quay sau khi gửi)"
+                placeholder="Nhập tâm tư, kỷ niệm hoặc lời chúc tri ân của bạn tại đây... (Nội dung sẽ được kiểm duyệt tự động)"
                 className={`w-full p-3 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 transition leading-relaxed ${
                   violationError
                     ? 'border-2 border-rose-500 ring-2 ring-rose-500/40 bg-rose-950/20 text-rose-100'
@@ -423,7 +471,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                       {violationError}
                     </p>
                     <p className="text-[11px] opacity-80 italic">
-                      Quy định: Học sinh Trường TC Công nghiệp Bách Khoa Sầm Sơn cần làm gương, giữ gìn nét đẹp văn hóa ứng xử. Lời nhắn chỉ được duyệt và tặng +1 lượt quay khi 100% trong sáng.
+                      Quy định: Học sinh Trường TC Công nghiệp Bách Khoa Sầm Sơn cần làm gương, giữ gìn nét đẹp văn hóa ứng xử. Lời nhắn chỉ được duyệt khi 100% trong sáng.
                     </p>
                   </div>
                 </div>
@@ -433,11 +481,12 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
             {/* Submit CTA */}
             <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span
-                className={`text-[11px] ${
+                className={`text-[11px] flex items-center gap-1.5 ${
                   isDark ? 'text-rose-200/70' : 'text-stone-500'
                 }`}
               >
-                ✓ Tự động cộng +1 lượt quay vào tài khoản sau khi gửi
+                <Database className="w-3.5 h-3.5 text-pink-400" />
+                Lưu trực tiếp vào CSDL Firestore
               </span>
 
               <button
@@ -445,19 +494,19 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                 disabled={isSubmitting || message.trim().length < 8}
                 className={`py-2.5 px-6 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg transition-all ${
                   message.trim().length >= 8 && !isSubmitting
-                    ? 'bg-gradient-to-r from-pink-500 via-rose-600 to-amber-500 text-white hover:brightness-110 shadow-glow-rose cursor-pointer animate-pulse'
+                    ? 'bg-gradient-to-r from-pink-500 via-rose-600 to-amber-500 text-white hover:brightness-110 shadow-glow-rose cursor-pointer'
                     : 'bg-zinc-700 text-zinc-400 cursor-not-allowed opacity-60'
                 }`}
               >
                 {isSubmitting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Đang kiểm duyệt & gửi...</span>
+                    <span>Đang kiểm duyệt & lưu...</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>Gửi Ngay · Nhận +1 Quay</span>
+                    <span>Gửi Lời Chúc Tri Ân</span>
                   </>
                 )}
               </button>
@@ -465,10 +514,10 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
 
             {/* Success Notification Alert */}
             {submittedSuccess && (
-              <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div className="p-3 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-200 text-xs font-bold flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>
-                  Đã kiểm duyệt đạt chuẩn & gửi thành công! +1 lượt quay may mắn đã được kích hoạt. Hãy lướt lên trên và quay thưởng ngay!
+                  Đã gửi lời chúc thành công! Lời nhắn của bạn đã được tiếp nhận và đang chờ Ban Quản Trị phê duyệt trước khi hiển thị công khai.
                 </span>
               </div>
             )}
@@ -488,81 +537,103 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                 Tường Confession Mới Nhất
               </h3>
             </div>
-            <span
-              className={`text-[11px] font-mono ${
-                isDark ? 'text-amber-300/80' : 'text-rose-700 font-bold'
+            <button
+              type="button"
+              onClick={fetchConfessions}
+              className={`text-[11px] font-mono flex items-center gap-1 transition ${
+                isDark ? 'text-amber-300/80 hover:text-amber-200' : 'text-rose-700 hover:text-rose-900 font-bold'
               }`}
+              title="Tải lại từ CSDL"
             >
-              Trực tuyến
-            </span>
+              <RefreshCw className={`w-3 h-3 ${isLoadingFeed ? 'animate-spin' : ''}`} />
+              <span>Làm mới</span>
+            </button>
           </div>
 
           {/* Cards List */}
           <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-pink-500/30">
-            {confessionList.map((c) => (
-              <div
-                key={c.id}
-                className={`p-3.5 rounded-xl border transition ${
-                  isDark
-                    ? 'bg-black/30 hover:bg-black/45 border-white/10'
-                    : 'bg-white hover:bg-rose-50/50 border-rose-200 shadow-sm'
-                }`}
-              >
-                {/* Meta header */}
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="font-mono text-[11px] font-bold text-pink-400 truncate">
-                      {c.alias}
-                    </span>
-                    <span className="text-zinc-500 text-[10px]">·</span>
-                    <span
-                      className={`text-[10px] font-semibold truncate ${
-                        isDark ? 'text-amber-300/90' : 'text-stone-700'
-                      }`}
-                    >
-                      {c.recipientTag}
-                    </span>
-                  </div>
-
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${
-                      isDark ? 'bg-white/10 text-rose-200' : 'bg-rose-100 text-rose-800'
-                    }`}
-                  >
-                    #{c.category}
-                  </span>
-                </div>
-
-                {/* Content */}
-                <p
-                  className={`text-xs leading-relaxed mb-2.5 font-normal ${
-                    isDark ? 'text-stone-200' : 'text-stone-800'
+            {isLoadingFeed && confessionList.length === 0 ? (
+              <div className="py-8 text-center text-xs text-zinc-400 flex flex-col items-center gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin text-pink-500" />
+                <span>Đang tải lời chúc từ cơ sở dữ liệu...</span>
+              </div>
+            ) : confessionList.length === 0 ? (
+              <div className="py-8 text-center text-xs text-zinc-400">
+                Chưa có lời chúc nào. Hãy là người đầu tiên gửi lời chúc!
+              </div>
+            ) : (
+              confessionList.map((c) => (
+                <div
+                  key={c.id}
+                  className={`p-3.5 rounded-xl border transition ${
+                    isDark
+                      ? 'bg-black/30 hover:bg-black/45 border-white/10'
+                      : 'bg-white hover:bg-rose-50/50 border-rose-200 shadow-sm'
                   }`}
                 >
-                  "{c.content}"
-                </p>
+                  {/* Meta header */}
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="font-mono text-[11px] font-bold text-pink-400 truncate">
+                        {c.alias}
+                      </span>
+                      <span className="text-zinc-500 text-[10px]">·</span>
+                      <span
+                        className={`text-[10px] font-semibold truncate ${
+                          isDark ? 'text-amber-300/90' : 'text-stone-700'
+                        }`}
+                      >
+                        {c.recipientTag}
+                      </span>
+                    </div>
 
-                {/* Footer with Like & Timestamp */}
-                <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-white/5">
-                  <span className={isDark ? 'text-zinc-500' : 'text-stone-500'}>
-                    {c.timeAgo}
-                  </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {c.status === 'PENDING' && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                          ⏳ Chờ duyệt
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                          isDark ? 'bg-white/10 text-rose-200' : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        #{c.category}
+                      </span>
+                    </div>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleLike(c.id)}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border transition ${
-                      isDark
-                        ? 'border-white/10 text-rose-300 hover:bg-white/10'
-                        : 'border-rose-200 text-rose-700 hover:bg-rose-50'
+                  {/* Content */}
+                  <p
+                    className={`text-xs leading-relaxed mb-2.5 font-normal ${
+                      isDark ? 'text-stone-200' : 'text-stone-800'
                     }`}
                   >
-                    <Heart className="w-3 h-3 text-pink-500 fill-current" />
-                    <span>{c.likes}</span>
-                  </button>
+                    "{c.content}"
+                  </p>
+
+                  {/* Footer with Like & Timestamp */}
+                  <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-white/5">
+                    <span className={isDark ? 'text-zinc-500' : 'text-stone-500'}>
+                      {c.timeAgo}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => handleLike(c.id)}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border transition cursor-pointer ${
+                        isDark
+                          ? 'border-white/10 text-rose-300 hover:bg-white/10'
+                          : 'border-rose-200 text-rose-700 hover:bg-rose-50'
+                      }`}
+                    >
+                      <Heart className="w-3 h-3 text-pink-500 fill-current" />
+                      <span>{c.likes}</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

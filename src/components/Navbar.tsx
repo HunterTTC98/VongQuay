@@ -18,6 +18,7 @@ import {
   Trophy,
   Sliders,
   CheckCircle2,
+  MessageSquareHeart,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -35,7 +36,7 @@ interface NavbarProps {
   onToggleTheme?: () => void;
   petalsEnabled?: boolean;
   onTogglePetals?: () => void;
-  onNavigateSection?: (section: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP') => void;
+  onNavigateSection?: (section: 'WHEEL' | 'CONFESSION' | 'CARDS' | 'PRIZES' | 'LOOKUP') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -79,13 +80,14 @@ export const Navbar: React.FC<NavbarProps> = ({
     };
   }, [isNavMenuOpen]);
 
-  const handleNavClick = (section: 'WHEEL' | 'CARDS' | 'PRIZES' | 'LOOKUP') => {
+  const handleNavClick = (section: 'WHEEL' | 'CONFESSION' | 'CARDS' | 'PRIZES' | 'LOOKUP') => {
     setIsNavMenuOpen(false);
     if (isAdminView) onToggleAdminView();
     if (onNavigateSection) {
       onNavigateSection(section);
     } else {
       if (section === 'WHEEL') document.getElementById('lucky-wheel')?.scrollIntoView({ behavior: 'smooth' });
+      else if (section === 'CONFESSION') document.getElementById('confession-station')?.scrollIntoView({ behavior: 'smooth' });
       else if (section === 'CARDS') document.getElementById('greeting-card-studio')?.scrollIntoView({ behavior: 'smooth' });
       else if (section === 'PRIZES') document.getElementById('prize-matrix-showcase')?.scrollIntoView({ behavior: 'smooth' });
       else if (section === 'LOOKUP') onOpenLookup();
@@ -200,6 +202,24 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                         <button
                           type="button"
+                          onClick={() => handleNavClick('CONFESSION')}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-left transition ${
+                            isDark
+                              ? 'hover:bg-white/10 text-rose-100 hover:text-white'
+                              : 'hover:bg-rose-50 text-gray-800 hover:text-rose-700'
+                          }`}
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-pink-500 to-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                            <MessageSquareHeart className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="font-['Montserrat',sans-serif]">Trạm Confession 20/10</div>
+                            <div className="text-[10px] text-pink-300/80 font-normal">Gửi lời chúc ẩn danh & Tri ân Thầy Cô</div>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={() => handleNavClick('CARDS')}
                           className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold text-left transition ${
                             isDark
@@ -307,6 +327,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Search className="w-4 h-4 text-amber-300" />
               <span className="navbar-lookup-label hidden lg:inline">Tra cứu</span>
+            </button>
+
+            {/* Quick Confession Link */}
+            <button
+              type="button"
+              onClick={() => handleNavClick('CONFESSION')}
+              className="inline-flex items-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-400/30 active:scale-95 transition text-xs sm:text-sm font-bold backdrop-blur-md shadow-sm"
+              title="Trạm Lời Chúc & Confession Tri Ân 20/10"
+            >
+              <MessageSquareHeart className="w-4 h-4 text-pink-300" />
+              <span className="hidden lg:inline">Confession</span>
             </button>
 
             {/* Falling Petals Toggle Button */}

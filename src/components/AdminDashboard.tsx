@@ -10,6 +10,7 @@ import {
   PRESET_OCCASIONS,
 } from '../types/index.ts';
 import { STATUS_MAP } from './ClaimLookup.tsx';
+import { ConfessionModeratorDashboard } from './ConfessionModeratorDashboard.tsx';
 import {
   LayoutDashboard,
   Target,
@@ -71,6 +72,7 @@ interface AdminDashboardProps {
 
 export type NavSection =
   | 'OVERVIEW'
+  | 'MODERATION'
   | 'CAMPAIGNS'
   | 'WHEEL_MATRIX'
   | 'CLAIMS'
@@ -631,6 +633,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Section titles mapping for Topbar
   const SECTION_TITLES: Record<NavSection, { title: string; subtitle: string }> = {
     OVERVIEW: { title: 'Tổng Quan & KPI', subtitle: 'Bảng theo dõi số liệu dòng tiền, hiệu suất chiến dịch & cảnh báo ngân sách' },
+    MODERATION: { title: 'Duyệt Confession Học Đường', subtitle: 'Hàng đợi kiểm duyệt bài viết, phát hiện từ cấm & phím tắt tốc độ cao [A/R/E]' },
     CAMPAIGNS: { title: 'Quản Lý Chiến Dịch & Ngân Sách', subtitle: 'Quy trình Stepper 3 bước thiết lập sự kiện, hạn mức ngân sách & xuất bản' },
     WHEEL_MATRIX: { title: 'Cấu Hình Vòng Quay & Tỷ Lệ', subtitle: 'Ma trận 8 ô giải thưởng, trọng số xác suất & biểu đồ hình tròn Pie Chart' },
     CLAIMS: { title: 'Duyệt & Trao Thưởng MoMo', subtitle: 'Đối soát mã trúng thưởng, cập nhật mã tham chiếu MoMo & xuất file kế toán' },
@@ -641,24 +644,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-['Inter',sans-serif] text-slate-800 flex flex-col antialiased">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 font-['Inter',sans-serif] text-slate-800 flex flex-col antialiased">
       {/* 1. TOPBAR: Corporate Header with Breadcrumbs, Live Status, Search, and Emergency Actions */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs px-2.5 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-1.5 sm:gap-4 w-full max-w-full">
         {/* Left: Breadcrumbs & Brand Identity */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black shadow-sm">
-            <Shield className="w-4 h-4" />
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black shadow-sm shrink-0">
+            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <div className="flex items-center gap-1 sm:gap-1.5 text-xs text-slate-500">
               <span
                 onClick={() => setCurrentSection('OVERVIEW')}
-                className="hover:text-blue-600 font-medium cursor-pointer"
+                className="hover:text-blue-600 font-medium cursor-pointer truncate hidden sm:inline"
               >
                 Bách Khoa SaaS
               </span>
-              <span>/</span>
-              <span className="text-slate-800 font-semibold truncate">
+              <span className="hidden sm:inline">/</span>
+              <span className="text-slate-800 font-semibold truncate text-[11px] sm:text-xs">
                 {SECTION_TITLES[currentSection]?.title}
               </span>
             </div>
@@ -666,44 +669,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Center / Right: Live State Switcher + Quick Actions + Admin Info */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           {/* Quick Event Live Status Badge & Toggles */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex items-center bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200">
             <button
               type="button"
               onClick={() => handleSetEventStatus('ACTIVE')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                 stats?.event?.status === 'ACTIVE'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
+              title="Kích hoạt sự kiện"
             >
               <PlayCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Hoạt Động</span>
+              <span className="hidden md:inline">Hoạt Động</span>
             </button>
             <button
               type="button"
               onClick={() => handleSetEventStatus('PAUSED')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                 stats?.event?.status === 'PAUSED'
                   ? 'bg-amber-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
+              title="Tạm dừng sự kiện"
             >
               <PauseCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Tạm Dừng</span>
+              <span className="hidden md:inline">Tạm Dừng</span>
             </button>
             <button
               type="button"
               onClick={() => handleSetEventStatus('ENDED')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+              className={`px-1.5 sm:px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold transition flex items-center gap-1 ${
                 stats?.event?.status === 'ENDED'
                   ? 'bg-rose-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
+              title="Kết thúc sự kiện"
             >
               <StopCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Kết Thúc</span>
+              <span className="hidden md:inline">Kết Thúc</span>
             </button>
           </div>
 
@@ -712,7 +718,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <button
               type="button"
               onClick={onExitToPublic}
-              className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center gap-1.5 transition cursor-pointer"
+              className="px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 flex items-center gap-1 transition cursor-pointer"
               title="Quay lại giao diện người dùng"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-slate-600" />
@@ -724,15 +730,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <button
             type="button"
             onClick={() => setIsTopUpModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 flex items-center gap-1.5 transition shadow-xs"
+            className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 flex items-center gap-1 transition shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Nạp Ngân Sách</span>
           </button>
 
           {/* Admin Avatar & Role */}
-          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-            <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center border border-slate-300">
+          <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center border border-slate-300 shrink-0">
               {adminUser.username.slice(0, 2).toUpperCase()}
             </div>
             <div className="hidden lg:block text-left">
@@ -745,10 +751,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       </header>
 
-      {/* Mobile Top Horizontal Scroll Bar for Quick Switching All 8 Categories */}
-      <div className="md:hidden bg-white border-b border-slate-200 px-3 py-2 overflow-x-auto flex items-center gap-1.5 scrollbar-none z-30 sticky top-[53px]">
+      {/* Mobile Top Horizontal Scroll Bar for Quick Switching All Categories */}
+      <div className="md:hidden bg-white border-b border-slate-200 px-3 py-2 overflow-x-auto w-full max-w-full flex items-center gap-1.5 scrollbar-none z-30 sticky top-[49px]">
         {[
           { id: 'OVERVIEW', label: 'Tổng Quan', icon: LayoutDashboard },
+          { id: 'MODERATION', label: 'Duyệt Confession', icon: MessageSquareHeart },
           { id: 'CAMPAIGNS', label: 'Chiến Dịch', icon: Target, badge: budgetRiskLevel === 'RED' ? '!' : undefined },
           { id: 'WHEEL_MATRIX', label: 'Vòng Quay', icon: PieChart },
           { id: 'CLAIMS', label: 'Trao Thưởng', icon: Trophy, count: claims.filter((c) => c.status === 'PENDING_VERIFICATION').length },
@@ -791,7 +798,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Main Corporate Shell: Left Sidebar Navigation + Right Data Workplace */}
-      <div className="flex-1 flex flex-col md:flex-row">
+      <div className="flex-1 w-full max-w-full min-w-0 flex flex-col md:flex-row overflow-x-hidden">
         {/* 2. SIDEBAR NAVIGATION: Interactive Corporate Vertical Menu (Desktop Only) */}
         <aside className="hidden md:block w-64 bg-white border-r border-slate-200 p-4 space-y-6 shrink-0">
           <div>
@@ -801,6 +808,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <nav className="space-y-1">
               {[
                 { id: 'OVERVIEW', label: 'Tổng Quan & KPI', icon: LayoutDashboard },
+                { id: 'MODERATION', label: 'Duyệt Confession AI', icon: MessageSquareHeart },
                 {
                   id: 'CAMPAIGNS',
                   label: 'Chiến Dịch & Ngân Sách',
@@ -894,7 +902,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </aside>
 
         {/* 3. RIGHT CONTENT WORKSPACE: Distinct Views Strictly Separated by currentSection */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-6xl pb-24 md:pb-8">
+        <main className="flex-1 w-full max-w-full min-w-0 p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-24 md:pb-8 overflow-x-hidden">
           {/* Notification Alert Message Banner */}
           {notice && (
             <div
@@ -994,10 +1002,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 {/* KPI 3: Tổng Số Confession Được Duyệt */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
+                <div
+                  onClick={() => setCurrentSection('MODERATION')}
+                  className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between hover:border-pink-300 hover:bg-pink-50/10 cursor-pointer transition group"
+                  title="Nhấp để mở hàng đợi Duyệt Confession"
+                >
                   <div>
                     <div className="flex items-center justify-between text-xs text-slate-500 font-semibold mb-1">
-                      <span>Confession Đã Duyệt</span>
+                      <span className="group-hover:text-pink-600 transition font-bold">Duyệt Confession Học Đường</span>
                       <MessageSquareHeart className="w-4 h-4 text-pink-500" />
                     </div>
                     <div className="flex items-baseline gap-2">
@@ -1014,8 +1026,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                    <span className="text-slate-500">Chuẩn mực học đường:</span>
-                    <span className="font-bold text-blue-600">Phương án A (Bảo vệ)</span>
+                    <span className="text-slate-500">Mở hàng đợi:</span>
+                    <span className="font-bold text-pink-600 group-hover:underline flex items-center gap-1">
+                      <span>Duyệt nhanh [A/R]</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
                   </div>
                 </div>
 
@@ -1232,6 +1247,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
 
           {/* ============================================================== */}
+          {/* HẠNG MỤC: DUYỆT CONFESSION HỌC ĐƯỜNG (MODERATION)              */}
+          {/* ============================================================== */}
+          {currentSection === 'MODERATION' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <MessageSquareHeart className="w-5 h-5 text-pink-600" />
+                    <span>Hàng Đợi Kiểm Duyệt Confession Học Đường</span>
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Kiểm duyệt tốc độ cao với phím tắt [A] Duyệt, [R] Từ chối, [E] Sửa nhanh và [J]/[K] điều hướng.
+                  </p>
+                </div>
+              </div>
+
+              <ConfessionModeratorDashboard
+                adminToken={adminToken}
+                adminUsername={adminUser.username}
+                onRefreshParent={fetchStats}
+              />
+            </div>
+          )}
+
+          {/* ============================================================== */}
           {/* HẠNG MỤC 2: CHIẾN DỊCH & NGÂN SÁCH (CAMPAIGNS)                 */}
           {/* ============================================================== */}
           {currentSection === 'CAMPAIGNS' && (
@@ -1278,10 +1318,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* Subtab 1: Form Stepper Quản Trị Chiến Dịch */}
               {campaignTab === 'ACTIVE' && (
-                <div className="p-6 space-y-8">
+                <div className="p-3 sm:p-6 space-y-6 sm:space-y-8">
                   {/* Stepper Navigation Indicator */}
                   <div className="max-w-3xl mx-auto">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[
                         { step: 1, title: 'Bước 1: Thiết Lập Sự Kiện', subtitle: 'Tên, Dịp lễ & Thời gian' },
                         { step: 2, title: 'Bước 2: Phân Bổ Ngân Sách', subtitle: 'Hạn mức & Cơ cấu 8 ô quà' },
@@ -1685,7 +1725,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* HẠNG MỤC 3: CẤU HÌNH VÒNG QUAY 8 Ô & TỶ LỆ (WHEEL_MATRIX)       */}
           {/* ============================================================== */}
           {currentSection === 'WHEEL_MATRIX' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6 animate-fade-in">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 sm:p-6 space-y-4 sm:space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                 <div>
                   <h3 className="text-base font-black text-slate-900">
@@ -1814,8 +1854,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </label>
                           </div>
 
-                          <div className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-5">
+                          <div className="flex flex-col sm:grid sm:grid-cols-12 gap-2 sm:items-center">
+                            <div className="w-full sm:col-span-5">
                               <input
                                 type="text"
                                 id={`name-${p.slot_index}`}
@@ -1825,39 +1865,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               />
                             </div>
 
-                            <div className="col-span-4 flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400">SL:</span>
-                              <input
-                                type="number"
-                                min={0}
-                                id={`rem-${p.slot_index}`}
-                                defaultValue={p.remaining_quantity}
-                                title="Số lượng còn lại"
-                                className="w-14 px-1.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-center"
-                              />
-                              <span className="text-[10px] text-slate-400">/</span>
-                              <input
-                                type="number"
-                                min={1}
-                                id={`tot-${p.slot_index}`}
-                                defaultValue={p.total_quantity}
-                                title="Tổng số lượng"
-                                className="w-14 px-1.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono text-center"
-                              />
+                            <div className="w-full flex items-center justify-between sm:justify-start gap-1 sm:col-span-4">
+                              <span className="text-[10px] text-slate-500 font-medium">SL Còn/Tổng:</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  id={`rem-${p.slot_index}`}
+                                  defaultValue={p.remaining_quantity}
+                                  title="Số lượng còn lại"
+                                  className="w-16 px-1.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-center"
+                                />
+                                <span className="text-[10px] text-slate-400">/</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  id={`tot-${p.slot_index}`}
+                                  defaultValue={p.total_quantity}
+                                  title="Tổng số lượng"
+                                  className="w-16 px-1.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono text-center"
+                                />
+                              </div>
                             </div>
 
-                            <div className="col-span-3 flex items-center gap-1 justify-end">
-                              <span className="text-[10px] text-slate-400">Trọng số:</span>
-                              <input
-                                type="number"
-                                min={1}
-                                id={`weight-${p.slot_index}`}
-                                defaultValue={p.probability_weight}
-                                className="w-14 px-1.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-600 text-center"
-                              />
-                              <span className="text-[10px] font-bold text-slate-500">
-                                ({sliceInfo?.percentage}%)
-                              </span>
+                            <div className="w-full flex items-center justify-between sm:justify-end gap-1 sm:col-span-3">
+                              <span className="text-[10px] text-slate-500 font-medium">Trọng số:</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  id={`weight-${p.slot_index}`}
+                                  defaultValue={p.probability_weight}
+                                  className="w-16 px-1.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-blue-600 text-center"
+                                />
+                                <span className="text-[10px] font-bold text-slate-500 shrink-0">
+                                  ({sliceInfo?.percentage}%)
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1873,13 +1917,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* HẠNG MỤC 4: DUYỆT & TRAO THƯỞNG MOMO (CLAIMS)                   */}
           {/* ============================================================== */}
           {currentSection === 'CLAIMS' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4 animate-fade-in">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 sm:p-6 space-y-4 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                 <div>
                   <h3 className="text-base font-black text-slate-900">Danh Sách Trao Thưởng Học Sinh</h3>
                   <p className="text-xs text-slate-500">Đối soát và duyệt chi trả MoMo cho các mã trúng thưởng.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => handleExportClaimsCSV('ALL')}
@@ -1900,8 +1944,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Filters */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[200px]">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative flex-1 min-w-0">
                   <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
                   <input
                     type="text"
@@ -1926,8 +1970,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
 
               {/* Claims List Table */}
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto w-full max-w-full border border-slate-200 rounded-xl">
+                <table className="w-full min-w-[580px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-3">Mã Claim</th>
@@ -1996,13 +2040,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* HẠNG MỤC 5: KHO VÉ ĐIỆN TỬ (TICKETS)                           */}
           {/* ============================================================== */}
           {currentSection === 'TICKETS' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6 animate-fade-in">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 sm:p-6 space-y-4 sm:space-y-6 animate-fade-in">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                 <div>
                   <h3 className="text-base font-black text-slate-900">Quản Lý Vé Sự Kiện Hàng Loạt</h3>
                   <p className="text-xs text-slate-500">Tạo mã vé phát cho học sinh hoặc kiểm tra trạng thái vé.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {selectedTicketCodes.length > 0 && (
                     <button
                       type="button"
@@ -2026,7 +2070,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               {/* Generate Batch Form */}
               <form onSubmit={handleGenerateTickets} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-end gap-3">
-                <div>
+                <div className="w-full sm:w-auto">
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Số lượng vé muốn tạo:</label>
                   <input
                     type="number"
@@ -2034,21 +2078,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     max={100}
                     value={batchCount}
                     onChange={(e) => setBatchCount(Number(e.target.value))}
-                    className="w-28 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold"
+                    className="w-full sm:w-28 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold"
                   />
                 </div>
-                <div>
+                <div className="w-full sm:w-auto">
                   <label className="block text-[11px] font-bold text-slate-600 mb-1">Tiền tố mã (Prefix):</label>
                   <input
                     type="text"
                     value={batchPrefix}
                     onChange={(e) => setBatchPrefix(e.target.value.toUpperCase())}
-                    className="w-28 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold uppercase"
+                    className="w-full sm:w-28 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold uppercase"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Tạo Vé Mới</span>
@@ -2056,8 +2100,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </form>
 
               {/* Tickets Table */}
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto w-full max-w-full border border-slate-200 rounded-xl">
+                <table className="w-full min-w-[580px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-3 w-10 text-center">
@@ -2123,7 +2167,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* HẠNG MỤC 6: PHÂN QUYỀN BAN QUẢN TRỊ (ADMINS)                   */}
           {/* ============================================================== */}
           {currentSection === 'ADMINS' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6 animate-fade-in">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 sm:p-6 space-y-4 sm:space-y-6 animate-fade-in">
               <div className="pb-3 border-b border-slate-200">
                 <h3 className="text-base font-black text-slate-900">Quản Lý Phân Quyền Ban Quản Trị</h3>
                 <p className="text-xs text-slate-500">Thêm người kiểm duyệt hoặc nâng cấp quyền Super Admin.</p>
@@ -2136,7 +2180,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <span>Thêm Quản Trị Viên Mới</span>
                 </h4>
                 <div className="flex flex-wrap items-end gap-3">
-                  <div className="flex-1 min-w-[240px]">
+                  <div className="flex-1 min-w-0 w-full sm:w-auto">
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">
                       Email hoặc Username:
                     </label>
@@ -2148,12 +2192,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium"
                     />
                   </div>
-                  <div>
+                  <div className="w-full sm:w-auto">
                     <label className="block text-[11px] font-bold text-slate-600 mb-1">Vai trò cấp quyền:</label>
                     <select
                       value={newAdminRole}
                       onChange={(e) => setNewAdminRole(e.target.value as any)}
-                      className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold"
+                      className="w-full sm:w-auto px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold"
                     >
                       <option value="ADMIN">Quản Trị Viên (Admin)</option>
                       <option value="SUPER_ADMIN">Tổng Quản Trị (Super Admin)</option>
@@ -2162,7 +2206,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     type="submit"
                     disabled={addingAdmin}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer disabled:opacity-60"
+                    className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer disabled:opacity-60"
                   >
                     {addingAdmin ? 'Đang thêm...' : 'Cấp Quyền'}
                   </button>
@@ -2170,8 +2214,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </form>
 
               {/* Admins Table */}
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto w-full max-w-full border border-slate-200 rounded-xl">
+                <table className="w-full min-w-[560px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-3">Tài Khoản Quản Trị</th>
@@ -2228,7 +2272,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {/* HẠNG MỤC 7: LỊCH SỬ KIỂM TOÁN NGÂN SÁCH (LOGS)                 */}
           {/* ============================================================== */}
           {currentSection === 'LOGS' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-4 animate-fade-in">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-3 sm:p-6 space-y-4 animate-fade-in">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                 <div>
                   <h3 className="text-base font-black text-slate-900">Lịch Sử Kiểm Toán Hệ Thống (Audit Trail)</h3>
@@ -2244,8 +2288,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </button>
               </div>
 
-              <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                <table className="w-full text-left text-xs">
+              <div className="overflow-x-auto w-full max-w-full border border-slate-200 rounded-xl">
+                <table className="w-full min-w-[580px] text-left text-xs">
                   <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
                     <tr>
                       <th className="p-3">Thời Gian</th>
@@ -2583,6 +2627,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             <div className="grid grid-cols-2 gap-2.5">
               {[
+                { id: 'MODERATION', label: 'Duyệt Confession', desc: 'Kiểm duyệt phím tắt [A/R]', icon: MessageSquareHeart },
                 { id: 'TICKETS', label: 'Kho Vé Điện Tử', desc: 'Tạo & xuất mã vé', icon: TicketIcon },
                 { id: 'LOGS', label: 'Lịch Sử Kiểm Toán', desc: 'Audit log & IP', icon: History },
                 { id: 'ADMINS', label: 'Phân Quyền BQT', desc: 'Cấp quyền tài khoản', icon: Users },

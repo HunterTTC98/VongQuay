@@ -141,6 +141,26 @@
         "timestamp": { "type": "string" }
       },
       "required": ["admin_username", "action", "timestamp"]
+    },
+    "confession": {
+      "title": "Confession",
+      "description": "Student messages and wishes submitted for events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "alias": { "type": "string", "maxLength": 128 },
+        "recipientTag": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "hashtag": { "type": "string", "maxLength": 64 },
+        "content": { "type": "string", "maxLength": 1000 },
+        "likes": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "createdAt": { "type": "string" },
+        "editedContent": { "type": "string" },
+        "moderatedBy": { "type": "string" },
+        "moderatedAt": { "type": "string" }
+      },
+      "required": ["id", "content", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -167,6 +187,10 @@
     "/claims/{claimCode}": {
       "schema": { "$ref": "claim" },
       "description": "Prize redemption requests"
+    },
+    "/confessions/{confessionId}": {
+      "schema": { "$ref": "confession" },
+      "description": "Student confession submissions and moderation status"
     },
     "/users/{userId}": {
       "schema": { "$ref": "user" },
