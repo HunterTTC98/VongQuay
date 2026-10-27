@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MessageSquareHeart,
   Send,
@@ -9,12 +9,14 @@ import {
   AlertOctagon,
   CheckCircle2,
   Database,
+  Sparkles,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
   validateConfessionSubmission,
   DEFAULT_SCHOOL_BLACKLIST,
 } from '../server/moderation.ts';
+import { Confession3DHearts, Confession3DHeartsRef } from './3d/Confession3DHearts.tsx';
 
 export interface ConfessionItem {
   id: string;
@@ -48,6 +50,8 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
   const [violatedWords, setViolatedWords] = useState<string[]>([]);
   const [confessionList, setConfessionList] = useState<ConfessionItem[]>([]);
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
+  const [mobileView, setMobileView] = useState<'FEED' | 'FORM'>('FEED');
+  const heartsRef = useRef<Confession3DHeartsRef>(null);
 
   const generateNewAlias = () => {
     setAlias(`#BKS_${Math.floor(100 + Math.random() * 900)}`);
@@ -95,9 +99,16 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
     fetchConfessions();
   }, []);
 
-  // Handle like button with real backend Firestore call
-  const handleLike = async (id: string) => {
+  // Handle like button with real backend Firestore call & 3D heart celebration
+  const handleLike = async (id: string, e?: React.MouseEvent) => {
     try {
+      // Trigger 3D heart particle burst at click coordinates
+      if (e) {
+        heartsRef.current?.burst(e.clientX, e.clientY, 10);
+      } else {
+        heartsRef.current?.burst(undefined, undefined, 10);
+      }
+
       // Optimistic update
       setConfessionList((prev) =>
         prev.map((c) => (c.id === id ? { ...c, likes: c.likes + 1 } : c))
@@ -187,9 +198,11 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
       setSubmittedSuccess(true);
       setViolationError(null);
       setViolatedWords([]);
+      setMobileView('FEED');
 
-      // Confetti gamification celebration
+      // Confetti gamification celebration & 3D floating hearts burst
       try {
+        heartsRef.current?.burst(undefined, undefined, 24);
         confetti({
           particleCount: 70,
           spread: 60,
@@ -214,26 +227,29 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
   return (
     <section
       id="confession-station"
-      className={`scroll-mt-24 rounded-3xl p-5 sm:p-7 transition-colors duration-300 border relative overflow-hidden shadow-2xl ${
+      className={`scroll-mt-24 rounded-3xl p-4 sm:p-7 transition-colors duration-300 border relative overflow-hidden shadow-xl ${
         isDark
-          ? 'bg-gradient-to-br from-[#240822]/95 via-[#1a051d]/95 to-[#2d0928]/95 border-amber-400/25 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-2xl'
-          : 'bg-gradient-to-br from-white via-rose-50/60 to-pink-50/70 border-rose-300/80 shadow-[0_15px_35px_rgba(244,63,94,0.08)]'
+          ? 'bg-slate-900/90 border-slate-700/60 shadow-[0_20px_50px_rgba(0,0,0,0.6)] backdrop-blur-2xl'
+          : 'bg-white border-slate-200/90 shadow-[0_15px_35px_rgba(0,0,0,0.06)]'
       }`}
     >
+      {/* 3D Floating Hearts Interactive Ambient Background */}
+      <Confession3DHearts ref={heartsRef} />
+
       {/* Background radial accent glow */}
-      <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-pink-500/15 via-rose-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-rose-500/10 via-amber-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
       {/* Hero Banner */}
       <div
-        className={`relative z-10 rounded-2xl p-4 sm:p-5 mb-6 border transition-all ${
+        className={`relative z-10 rounded-2xl p-4 sm:p-5 mb-5 border transition-all ${
           isDark
-            ? 'bg-gradient-to-r from-pink-950/70 via-purple-950/60 to-rose-950/70 border-pink-500/40 shadow-glow-rose'
-            : 'bg-gradient-to-r from-rose-100 via-pink-100 to-amber-100 border-rose-300 shadow-sm'
+            ? 'bg-slate-950/70 border-slate-700/60 shadow-md'
+            : 'bg-gradient-to-r from-rose-50 via-slate-50 to-amber-50 border-slate-200 shadow-xs'
         }`}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-600 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center font-black text-xl shadow-md shrink-0">
               <MessageSquareHeart className="w-6 h-6 animate-pulse" />
             </div>
             <div>
@@ -241,21 +257,21 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white shadow-sm">
                   KHÔNG GIAN TRI ÂN
                 </span>
-                <span className="text-xs text-amber-400 font-bold flex items-center gap-1">
+                <span className="text-xs text-amber-500 font-bold flex items-center gap-1">
                   <Database className="w-3.5 h-3.5" />
                   Lưu trữ CSDL Firestore
                 </span>
               </div>
               <h2
                 className={`text-base sm:text-xl font-black tracking-tight mt-0.5 ${
-                  isDark ? 'text-white' : 'text-stone-900'
+                  isDark ? 'text-white' : 'text-slate-900'
                 }`}
               >
                 Trạm Lời Chúc & Confession Tri Ân Học Đường
               </h2>
               <p
                 className={`text-xs mt-0.5 ${
-                  isDark ? 'text-rose-200/80' : 'text-stone-600'
+                  isDark ? 'text-slate-300' : 'text-slate-600'
                 }`}
               >
                 100% ẩn danh an toàn. Thỏa sức gửi gắm tâm tư, tri ân Thầy Cô giáo và lưu giữ kỷ niệm tuổi học trò.
@@ -278,20 +294,48 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
         </div>
       </div>
 
+      {/* Mobile Tab Switcher: View feed or write confession instantly without vertical scroll */}
+      <div className="lg:hidden flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-bold gap-1 mb-4 relative z-10">
+        <button
+          type="button"
+          onClick={() => setMobileView('FEED')}
+          className={`flex-1 py-2 px-2 rounded-lg transition text-center truncate cursor-pointer flex items-center justify-center gap-1.5 ${
+            mobileView === 'FEED'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Smile className="w-3.5 h-3.5" />
+          <span>Tường Confession ({confessionList.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileView('FORM')}
+          className={`flex-1 py-2 px-2 rounded-lg transition text-center truncate cursor-pointer flex items-center justify-center gap-1.5 ${
+            mobileView === 'FORM'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Send className="w-3.5 h-3.5" />
+          <span>Gửi Lời Chúc Mới</span>
+        </button>
+      </div>
+
       {/* Main Grid: Form (Left) & Live Feed (Right) */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Confession Form (7 cols) */}
-        <div className="lg:col-span-7">
+        <div className={`lg:col-span-7 ${mobileView === 'FORM' ? 'block' : 'hidden lg:block'}`}>
           <form
             onSubmit={handleSubmit}
-            className={`p-5 rounded-2xl border space-y-4 backdrop-blur-md transition ${
+            className={`p-4 sm:p-5 rounded-2xl border space-y-4 backdrop-blur-md transition ${
               isDark
-                ? 'bg-black/30 border-white/10'
-                : 'bg-white border-rose-200 shadow-sm'
+                ? 'bg-slate-950/60 border-slate-800'
+                : 'bg-slate-50/80 border-slate-200 shadow-xs'
             }`}
           >
             {/* Header of Form */}
-            <div className="flex items-center justify-between pb-3 border-b border-rose-500/15">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-700/30">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span
@@ -308,8 +352,8 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                 <span
                   className={`font-mono font-bold text-xs px-2.5 py-1 rounded-lg border ${
                     isDark
-                      ? 'bg-purple-950/70 border-purple-400/40 text-purple-300'
-                      : 'bg-rose-50 border-rose-200 text-rose-800'
+                      ? 'bg-slate-900 border-slate-700 text-rose-300'
+                      : 'bg-white border-slate-300 text-rose-800'
                   }`}
                 >
                   {alias}
@@ -317,10 +361,10 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                 <button
                   type="button"
                   onClick={generateNewAlias}
-                  className={`p-1.5 rounded-lg border transition ${
+                  className={`p-1.5 rounded-lg border transition cursor-pointer ${
                     isDark
-                      ? 'bg-white/10 hover:bg-white/20 text-white border-white/10'
-                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700 border-stone-200'
+                      ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
                   }`}
                   title="Đổi mã định danh ngẫu nhiên"
                 >
@@ -333,7 +377,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
             <div>
               <label
                 className={`block text-xs font-bold uppercase tracking-wider mb-2 ${
-                  isDark ? 'text-rose-200' : 'text-stone-700'
+                  isDark ? 'text-slate-300' : 'text-slate-700'
                 }`}
               >
                 1. Gửi lời nhắn đến ai?
@@ -349,14 +393,12 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                     key={item.id}
                     type="button"
                     onClick={() => setRecipientCategory(item.id as any)}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition ${
+                    className={`py-2 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition cursor-pointer ${
                       recipientCategory === item.id
-                        ? isDark
-                          ? 'bg-pink-600 text-white border-pink-400 shadow-sm'
-                          : 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                         : isDark
-                        ? 'bg-white/5 hover:bg-white/10 text-rose-100 border-white/10'
-                        : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                        ? 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
                     }`}
                   >
                     <span>{item.icon}</span>
@@ -370,7 +412,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
             <div>
               <label
                 className={`block text-xs font-bold uppercase tracking-wider mb-2 ${
-                  isDark ? 'text-rose-200' : 'text-stone-700'
+                  isDark ? 'text-slate-300' : 'text-slate-700'
                 }`}
               >
                 2. Chủ đề lời nhắn:
@@ -381,14 +423,12 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                     key={t}
                     type="button"
                     onClick={() => setTag(t)}
-                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border transition cursor-pointer ${
                       tag === t
-                        ? isDark
-                          ? 'bg-amber-400 text-stone-950 border-amber-300 font-bold'
-                          : 'bg-amber-400 text-stone-950 border-amber-400 font-bold'
+                        ? 'bg-amber-400 text-slate-950 border-amber-400 font-bold shadow-xs'
                         : isDark
-                        ? 'bg-white/5 hover:bg-white/10 text-rose-200/80 border-white/10'
-                        : 'bg-stone-100 hover:bg-stone-200 text-stone-600 border-stone-200'
+                        ? 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+                        : 'bg-white hover:bg-slate-100 text-slate-600 border-slate-200'
                     }`}
                   >
                     #{t}
@@ -402,7 +442,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
               <div className="flex items-center justify-between mb-1.5">
                 <label
                   className={`text-xs font-bold uppercase tracking-wider ${
-                    isDark ? 'text-rose-200' : 'text-stone-700'
+                    isDark ? 'text-slate-300' : 'text-slate-700'
                   }`}
                 >
                   3. Nội dung Confession:
@@ -412,8 +452,8 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                     message.length > 280
                       ? 'text-rose-500 font-bold'
                       : isDark
-                      ? 'text-zinc-400'
-                      : 'text-stone-500'
+                      ? 'text-slate-400'
+                      : 'text-slate-500'
                   }`}
                 >
                   {message.length}/300
@@ -432,13 +472,13 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                   violationError
                     ? 'border-2 border-rose-500 ring-2 ring-rose-500/40 bg-rose-950/20 text-rose-100'
                     : isDark
-                    ? 'bg-black/50 border border-white/15 text-white placeholder-zinc-500 focus:ring-pink-500'
-                    : 'bg-stone-50 border border-stone-300 text-stone-900 placeholder-stone-400 focus:ring-pink-500'
+                    ? 'bg-slate-900 border border-slate-700/70 text-slate-100 placeholder-slate-500 focus:ring-rose-500'
+                    : 'bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:ring-rose-500 shadow-xs'
                 }`}
               />
             </div>
 
-            {/* Violation Alert Banner (Phương án A - Hard Reject Guard) */}
+            {/* Violation Alert Banner */}
             {violationError && (
               <div
                 className={`p-3.5 sm:p-4 rounded-xl border animate-fade-in ${
@@ -482,20 +522,20 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
             <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span
                 className={`text-[11px] flex items-center gap-1.5 ${
-                  isDark ? 'text-rose-200/70' : 'text-stone-500'
+                  isDark ? 'text-slate-400' : 'text-slate-500'
                 }`}
               >
-                <Database className="w-3.5 h-3.5 text-pink-400" />
+                <Database className="w-3.5 h-3.5 text-rose-500" />
                 Lưu trực tiếp vào CSDL Firestore
               </span>
 
               <button
                 type="submit"
                 disabled={isSubmitting || message.trim().length < 8}
-                className={`py-2.5 px-6 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-lg transition-all ${
+                className={`py-2.5 px-6 rounded-xl text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-md transition-all ${
                   message.trim().length >= 8 && !isSubmitting
-                    ? 'bg-gradient-to-r from-pink-500 via-rose-600 to-amber-500 text-white hover:brightness-110 shadow-glow-rose cursor-pointer'
-                    : 'bg-zinc-700 text-zinc-400 cursor-not-allowed opacity-60'
+                    ? 'bg-gradient-to-r from-rose-600 to-amber-500 text-white hover:brightness-110 shadow-rose-950/20 cursor-pointer'
+                    : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
                 }`}
               >
                 {isSubmitting ? (
@@ -514,8 +554,8 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
 
             {/* Success Notification Alert */}
             {submittedSuccess && (
-              <div className="p-3 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-200 text-xs font-bold flex items-center gap-2 animate-fade-in">
-                <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+              <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>
                   Đã gửi lời chúc thành công! Lời nhắn của bạn đã được tiếp nhận và đang chờ Ban Quản Trị phê duyệt trước khi hiển thị công khai.
                 </span>
@@ -525,13 +565,13 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
         </div>
 
         {/* Right Column: Live Confession Feed Preview (5 cols) */}
-        <div className="lg:col-span-5 space-y-3">
+        <div className={`lg:col-span-5 space-y-3 ${mobileView === 'FEED' ? 'block' : 'hidden lg:block'}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Smile className="w-4 h-4 text-pink-400" />
+              <Smile className="w-4 h-4 text-rose-500" />
               <h3
                 className={`font-black text-xs sm:text-sm uppercase tracking-wider ${
-                  isDark ? 'text-white' : 'text-stone-900'
+                  isDark ? 'text-white' : 'text-slate-900'
                 }`}
               >
                 Tường Confession Mới Nhất
@@ -540,8 +580,8 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
             <button
               type="button"
               onClick={fetchConfessions}
-              className={`text-[11px] font-mono flex items-center gap-1 transition ${
-                isDark ? 'text-amber-300/80 hover:text-amber-200' : 'text-rose-700 hover:text-rose-900 font-bold'
+              className={`text-[11px] font-mono flex items-center gap-1 transition cursor-pointer ${
+                isDark ? 'text-amber-300 hover:text-amber-200' : 'text-rose-700 hover:text-rose-900 font-bold'
               }`}
               title="Tải lại từ CSDL"
             >
@@ -551,15 +591,15 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
           </div>
 
           {/* Cards List */}
-          <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-pink-500/30">
+          <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-rose-500/30">
             {isLoadingFeed && confessionList.length === 0 ? (
-              <div className="py-8 text-center text-xs text-zinc-400 flex flex-col items-center gap-2">
-                <RefreshCw className="w-5 h-5 animate-spin text-pink-500" />
+              <div className="py-8 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
+                <RefreshCw className="w-5 h-5 animate-spin text-rose-500" />
                 <span>Đang tải lời chúc từ cơ sở dữ liệu...</span>
               </div>
             ) : confessionList.length === 0 ? (
-              <div className="py-8 text-center text-xs text-zinc-400">
-                Chưa có lời chúc nào. Hãy là người đầu tiên gửi lời chúc!
+              <div className="py-8 text-center text-xs text-slate-400 bg-slate-100/50 dark:bg-slate-950/40 rounded-2xl p-6">
+                Chưa có lời chúc nào được hiển thị. Hãy là người đầu tiên gửi lời chúc tri ân!
               </div>
             ) : (
               confessionList.map((c) => (
@@ -567,20 +607,20 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                   key={c.id}
                   className={`p-3.5 rounded-xl border transition ${
                     isDark
-                      ? 'bg-black/30 hover:bg-black/45 border-white/10'
-                      : 'bg-white hover:bg-rose-50/50 border-rose-200 shadow-sm'
+                      ? 'bg-slate-950/70 hover:bg-slate-950/90 border-slate-800/80 text-slate-200 shadow-xs'
+                      : 'bg-white hover:bg-rose-50/30 border-slate-200 shadow-xs text-slate-800'
                   }`}
                 >
                   {/* Meta header */}
                   <div className="flex items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-mono text-[11px] font-bold text-pink-400 truncate">
+                      <span className="font-mono text-[11px] font-bold text-rose-500 truncate">
                         {c.alias}
                       </span>
-                      <span className="text-zinc-500 text-[10px]">·</span>
+                      <span className="text-slate-500 text-[10px]">·</span>
                       <span
                         className={`text-[10px] font-semibold truncate ${
-                          isDark ? 'text-amber-300/90' : 'text-stone-700'
+                          isDark ? 'text-amber-300' : 'text-slate-700'
                         }`}
                       >
                         {c.recipientTag}
@@ -595,7 +635,7 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
                       )}
                       <span
                         className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                          isDark ? 'bg-white/10 text-rose-200' : 'bg-rose-100 text-rose-800'
+                          isDark ? 'bg-slate-800 text-rose-300 border border-slate-700' : 'bg-rose-100 text-rose-800 border border-rose-200'
                         }`}
                       >
                         #{c.category}
@@ -605,30 +645,31 @@ export const ConfessionStation: React.FC<ConfessionStationProps> = ({
 
                   {/* Content */}
                   <p
-                    className={`text-xs leading-relaxed mb-2.5 font-normal ${
-                      isDark ? 'text-stone-200' : 'text-stone-800'
+                    className={`text-xs leading-relaxed mb-2.5 font-medium ${
+                      isDark ? 'text-slate-200' : 'text-slate-800'
                     }`}
                   >
                     "{c.content}"
                   </p>
 
                   {/* Footer with Like & Timestamp */}
-                  <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-white/5">
-                    <span className={isDark ? 'text-zinc-500' : 'text-stone-500'}>
+                  <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-700/20">
+                    <span className={isDark ? 'text-slate-500' : 'text-slate-500'}>
                       {c.timeAgo}
                     </span>
 
                     <button
                       type="button"
-                      onClick={() => handleLike(c.id)}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border transition cursor-pointer ${
+                      onClick={(e) => handleLike(c.id, e)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                         isDark
-                          ? 'border-white/10 text-rose-300 hover:bg-white/10'
-                          : 'border-rose-200 text-rose-700 hover:bg-rose-50'
+                          ? 'bg-slate-900 border-slate-700/70 text-rose-300 hover:bg-rose-950/40 active:scale-95'
+                          : 'bg-slate-50 border-slate-200 text-rose-700 hover:bg-rose-50 active:scale-95'
                       }`}
+                      title="Thả tim bay 3D"
                     >
-                      <Heart className="w-3 h-3 text-pink-500 fill-current" />
-                      <span>{c.likes}</span>
+                      <Heart className="w-3 h-3 text-rose-500 fill-current" />
+                      <span className="font-semibold">{c.likes}</span>
                     </button>
                   </div>
                 </div>

@@ -29,8 +29,8 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
 
   return (
     <div className="w-full text-center pt-2 pb-6 max-w-4xl mx-auto px-4 select-none">
-      {/* 1. Golden Eyebrow Badge matching reference image */}
-      <div className="event-eyebrow inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#3d1928] border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-extrabold shadow-lg mb-4 transition-colors">
+      {/* 1. Golden Eyebrow Badge */}
+      <div className="event-eyebrow inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-rose-100/90 dark:bg-[#3d1928] border border-rose-200 dark:border-amber-500/40 text-rose-900 dark:text-amber-300 text-xs sm:text-sm font-extrabold shadow-sm dark:shadow-lg mb-4 transition-colors">
         <span>⚡</span>
         <span className="uppercase tracking-wider font-['Montserrat',sans-serif]">
           VÒNG QUAY MAY MẮN {occasionLabel} · LÌ XÌ VÍ MOMO
@@ -38,28 +38,28 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
       </div>
 
       {/* 2. Main Title in Elegant Display Serif matching reference image */}
-      <h1 className="event-hero-title text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-rose-100 to-amber-200 tracking-tight font-serif leading-tight drop-shadow-md mb-3 transition-colors">
+      <h1 className="event-hero-title text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-rose-950 via-rose-800 to-amber-900 dark:from-white dark:via-rose-100 dark:to-amber-200 tracking-tight font-serif leading-tight drop-shadow-sm dark:drop-shadow-md mb-3 transition-colors">
         Vòng Quay Hồi Hộp – Rinh Quà Yêu Thương
       </h1>
 
       {/* 3. Concise Subtitle with highlights matching reference image */}
-      <p className="event-subtitle text-sm sm:text-base text-rose-200/90 max-w-2xl mx-auto leading-relaxed mb-5 font-medium transition-colors">
+      <p className="event-subtitle text-sm sm:text-base text-slate-700 dark:text-rose-200/90 max-w-2xl mx-auto leading-relaxed mb-5 font-medium transition-colors">
         Chương trình tri ân tại{' '}
-        <strong className="text-amber-300 font-bold">
+        <strong className="text-amber-900 dark:text-amber-300 font-bold">
           Trường TC Công nghiệp Bách Khoa Sầm Sơn
         </strong>
         . Cơ hội nhận lì xì MoMo từ{' '}
-        <strong className="text-pink-400 font-extrabold">10.000đ đến 100.000đ</strong> cùng
+        <strong className="text-rose-700 dark:text-pink-400 font-extrabold">10.000đ đến 100.000đ</strong> cùng
         muôn vàn lời chúc ý nghĩa!
       </p>
 
-      {/* 4. Quick Action Callout Pill Bar matching reference image */}
-      <div className="event-callout inline-flex flex-wrap items-center justify-center gap-3 px-5 py-2.5 rounded-full bg-[#341126]/90 border border-rose-500/30 text-xs sm:text-sm text-rose-100 shadow-xl mb-6 backdrop-blur-md transition-colors">
-        <span className="text-rose-400 font-bold">ⓘ</span>
+      {/* 4. Quick Action Callout Pill Bar */}
+      <div className="event-callout inline-flex flex-wrap items-center justify-center gap-3 px-5 py-2.5 rounded-full bg-white dark:bg-[#341126]/90 border border-slate-200 dark:border-rose-500/30 text-xs sm:text-sm text-slate-700 dark:text-rose-100 shadow-md dark:shadow-xl mb-6 backdrop-blur-md transition-colors">
+        <span className="text-rose-600 dark:text-rose-400 font-bold">ⓘ</span>
         <span>
           Có thể{' '}
-          <strong className="text-white font-bold">Đăng nhập nhận 3 lượt quay</strong> hoặc{' '}
-          <strong className="text-white font-bold">Nhập mã vé dự thưởng</strong> để quay ngay!
+          <strong className="text-slate-900 dark:text-white font-bold">Đăng nhập nhận 3 lượt quay</strong> hoặc{' '}
+          <strong className="text-slate-900 dark:text-white font-bold">Nhập mã vé dự thưởng</strong> để quay ngay!
         </span>
         {!currentUser && (
           <button
@@ -74,14 +74,14 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
       </div>
 
       {/* 5. Section Switcher Bar (Eliminates long scrolling) */}
-      <nav aria-label="Điều hướng nhanh" className="flex items-center justify-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+      <nav aria-label="Điều hướng nhanh" className="inline-flex items-center justify-center gap-2 p-1.5 rounded-2xl bg-slate-200/70 dark:bg-white/5 border border-slate-300/80 dark:border-white/10 overflow-x-auto pb-1.5 no-scrollbar max-w-full shadow-inner">
         <button
           type="button"
           onClick={() => onSelectSection('WHEEL')}
           className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
             activeSection === 'WHEEL'
-              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
-              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-md font-bold'
+              : 'bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-700 dark:text-rose-200 border border-slate-200/80 dark:border-white/10 shadow-sm dark:shadow-none hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Disc className="w-4 h-4" />
@@ -93,8 +93,8 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
           onClick={() => onSelectSection('CONFESSION')}
           className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
             activeSection === 'CONFESSION'
-              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
-              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-md font-bold'
+              : 'bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-700 dark:text-rose-200 border border-slate-200/80 dark:border-white/10 shadow-sm dark:shadow-none hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <MessageSquareHeart className="w-4 h-4" />
@@ -106,8 +106,8 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
           onClick={() => onSelectSection('CARDS')}
           className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
             activeSection === 'CARDS'
-              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
-              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-md font-bold'
+              : 'bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-700 dark:text-rose-200 border border-slate-200/80 dark:border-white/10 shadow-sm dark:shadow-none hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Heart className="w-4 h-4" />
@@ -119,8 +119,8 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
           onClick={() => onSelectSection('PRIZES')}
           className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
             activeSection === 'PRIZES'
-              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
-              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-md font-bold'
+              : 'bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-700 dark:text-rose-200 border border-slate-200/80 dark:border-white/10 shadow-sm dark:shadow-none hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Trophy className="w-4 h-4" />
@@ -132,8 +132,8 @@ export const EventWelcome: React.FC<EventWelcomeProps> = ({
           onClick={() => onSelectSection('LOOKUP')}
           className={`event-nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-2 shrink-0 ${
             activeSection === 'LOOKUP'
-              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-lg shadow-orange-500/20'
-              : 'bg-white/10 hover:bg-white/15 text-rose-200 border border-white/10'
+              ? 'active bg-gradient-to-r from-amber-500 to-orange-500 text-red-950 shadow-md font-bold'
+              : 'bg-white dark:bg-white/10 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-700 dark:text-rose-200 border border-slate-200/80 dark:border-white/10 shadow-sm dark:shadow-none hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Search className="w-4 h-4" />

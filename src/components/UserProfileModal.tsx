@@ -155,47 +155,50 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-3xl shadow-2xl border border-amber-200/80 w-full max-w-3xl overflow-hidden flex flex-col max-h-[92vh]">
+      <div
+        className="bg-white rounded-3xl shadow-2xl border border-amber-200/80 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90dvh]"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-700 via-rose-700 to-amber-600 text-white p-5 sm:p-6 relative">
+        <div className="bg-gradient-to-r from-red-700 via-rose-700 to-amber-600 text-white p-3.5 sm:p-6 relative shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition"
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition"
             aria-label="Đóng"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4">
+            <div className="relative shrink-0">
               {user?.photoUrl ? (
                 <img
                   src={user.photoUrl}
                   alt={user.fullName || user.username}
-                  className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl border-3 border-amber-300 shadow-md object-cover"
+                  className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl border-2 sm:border-3 border-amber-300 shadow-md object-cover"
                 />
               ) : (
-                <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-amber-400 text-red-900 border-3 border-white shadow-md flex items-center justify-center font-black text-2xl">
+                <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl sm:rounded-2xl bg-amber-400 text-red-900 border-2 sm:border-3 border-white shadow-md flex items-center justify-center font-black text-xl sm:text-2xl">
                   {(user?.fullName || user?.username || 'U').charAt(0).toUpperCase()}
                 </div>
               )}
               {hasAdminPrivilege && (
                 <span
                   title="Tài khoản Quản trị viên Bách Khoa"
-                  className="absolute -bottom-1 -right-1 bg-zinc-900 text-amber-400 p-1 rounded-full border border-amber-300 shadow"
+                  className="absolute -bottom-1 -right-1 bg-zinc-900 text-amber-400 p-0.5 sm:p-1 rounded-full border border-amber-300 shadow"
                 >
-                  <Shield className="w-4 h-4" />
+                  <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </span>
               )}
             </div>
 
             <div className="text-center sm:text-left flex-1 min-w-0">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h2 className="text-xl sm:text-2xl font-black text-white truncate">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2">
+                <h2 className="text-lg sm:text-2xl font-black text-white truncate max-w-full">
                   {user?.fullName || user?.username}
                 </h2>
                 {hasAdminPrivilege && (
-                  <span className="bg-amber-400 text-red-950 text-xs font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                  <span className="bg-amber-400 text-red-950 text-[10px] sm:text-xs font-black px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
                     Ban Quản Trị
                   </span>
                 )}
@@ -205,20 +208,23 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 {user?.studentClass && ` · Lớp: ${user.studentClass}`}
               </p>
 
-              {/* Quick stats badges */}
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3">
-                <span className="bg-white/20 backdrop-blur-md text-amber-200 border border-white/20 px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5">
-                  <Gift className="w-3.5 h-3.5 text-amber-300" />
-                  {user?.freeSpinsRemaining ?? 0} lượt quay miễn phí
-                </span>
-                <span className="bg-white/20 backdrop-blur-md text-white border border-white/20 px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5">
-                  <History className="w-3.5 h-3.5 text-amber-300" />
-                  {user?.totalSpins ?? spins.length} lượt đã quay
-                </span>
-                <span className="bg-white/20 backdrop-blur-md text-white border border-white/20 px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5">
-                  <TicketIcon className="w-3.5 h-3.5 text-amber-300" />
-                  {tickets.length} vé dự thưởng
-                </span>
+              {/* Quick stats badges: 3-column compact grid on mobile to save vertical space */}
+              <div className="grid grid-cols-3 gap-1.5 mt-2.5 sm:flex sm:flex-wrap sm:gap-2">
+                <div className="bg-white/20 backdrop-blur-md text-amber-200 border border-white/20 px-2 py-1 rounded-xl text-center text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5">
+                  <Gift className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                  <span className="font-extrabold text-amber-100">{user?.freeSpinsRemaining ?? 0}</span>
+                  <span className="text-[9px] sm:text-xs text-amber-200/90 font-normal sm:font-bold">lượt free</span>
+                </div>
+                <div className="bg-white/20 backdrop-blur-md text-white border border-white/20 px-2 py-1 rounded-xl text-center text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5">
+                  <History className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                  <span className="font-extrabold text-white">{user?.totalSpins ?? spins.length}</span>
+                  <span className="text-[9px] sm:text-xs text-white/90 font-normal sm:font-bold">đã quay</span>
+                </div>
+                <div className="bg-white/20 backdrop-blur-md text-white border border-white/20 px-2 py-1 rounded-xl text-center text-[10px] sm:text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5">
+                  <TicketIcon className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                  <span className="font-extrabold text-white">{tickets.length}</span>
+                  <span className="text-[9px] sm:text-xs text-white/90 font-normal sm:font-bold">vé thưởng</span>
+                </div>
               </div>
             </div>
 
@@ -228,7 +234,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   onClose();
                   onSwitchToAdmin();
                 }}
-                className="mt-2 sm:mt-0 px-3.5 py-2 rounded-xl bg-zinc-950 text-amber-400 font-bold text-xs sm:text-sm border border-amber-400/40 hover:bg-zinc-900 shadow-md inline-flex items-center gap-1.5 transition active:scale-95"
+                className="mt-1 sm:mt-0 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-zinc-950 text-amber-400 font-bold text-xs sm:text-sm border border-amber-400/40 hover:bg-zinc-900 shadow-md inline-flex items-center gap-1.5 transition active:scale-95 shrink-0"
               >
                 <Shield className="w-4 h-4" />
                 Vào Quản Trị
@@ -238,11 +244,11 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-stone-100 border-b border-stone-200 px-4 flex items-center justify-between overflow-x-auto gap-2">
+        <div className="bg-stone-100 border-b border-stone-200 px-3 sm:px-4 flex items-center justify-between overflow-x-auto gap-1 sm:gap-2 shrink-0">
           <div className="flex space-x-1 sm:space-x-2 py-2">
             <button
               onClick={() => setActiveTab('OVERVIEW')}
-              className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === 'OVERVIEW'
                   ? 'bg-white text-red-700 shadow-sm border border-stone-200'
                   : 'text-stone-600 hover:text-stone-900'
@@ -575,26 +581,26 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                     return (
                       <div
                         key={c.claim_code}
-                        className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                        className="bg-white border border-stone-200 rounded-2xl p-3.5 sm:p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 min-w-0"
                       >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-black text-red-700 text-base">
+                        <div className="space-y-1 min-w-0 w-full sm:w-auto">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <span className="font-mono font-black text-red-700 text-sm sm:text-base break-all">
                               {c.claim_code}
                             </span>
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusInfo.color}`}
+                              className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold ${statusInfo.color} shrink-0`}
                             >
                               {statusInfo.label}
                             </span>
                           </div>
-                          <div className="text-sm font-bold text-stone-900">
+                          <div className="text-xs sm:text-sm font-bold text-stone-900">
                             Giá trị giải:{' '}
-                            <span className="text-emerald-600 font-extrabold text-base">
+                            <span className="text-emerald-600 font-extrabold text-sm sm:text-base">
                               {Number(c.prize_amount).toLocaleString('vi-VN')}đ
                             </span>
                           </div>
-                          <p className="text-xs text-stone-500">
+                          <p className="text-[11px] sm:text-xs text-stone-500 truncate">
                             Tạo ngày: {c.created_at ? new Date(c.created_at).toLocaleDateString('vi-VN') : ''}
                             {c.payout_method && ` · Hình thức: ${c.payout_method === 'BANK_MOMO' ? 'MoMo / Ngân hàng' : 'Nhận trực tiếp'}`}
                           </p>
@@ -606,7 +612,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                               onClose();
                               onOpenClaimModal(c.claim_code, Number(c.prize_amount));
                             }}
-                            className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md transition"
+                            className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition shrink-0"
                           >
                             Điền thông tin nhận tiền
                           </button>

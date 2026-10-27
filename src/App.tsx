@@ -8,6 +8,7 @@ import {
 import { WHEEL_SLOTS } from './server/rules.ts';
 import { Navbar } from './components/Navbar.tsx';
 import { LuckyWheel } from './components/LuckyWheel.tsx';
+import { LuckyWheel3D } from './components/3d/LuckyWheel3D.tsx';
 import { TicketForm } from './components/TicketForm.tsx';
 import { ClaimModal } from './components/ClaimModal.tsx';
 import { ClaimLookup } from './components/ClaimLookup.tsx';
@@ -22,6 +23,7 @@ import { LiveMarqueeTicker } from './components/LiveMarqueeTicker.tsx';
 import { EventRoadmap } from './components/EventRoadmap.tsx';
 import { ConfessionStation } from './components/ConfessionStation.tsx';
 import { BottomNav, NavTabId } from './components/BottomNav.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { logoutFirebase } from './firebase.ts';
 import { soundManager } from './utils/audio.ts';
 import {
@@ -623,10 +625,10 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 relative ${
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 relative overflow-x-hidden ${
         theme === 'light'
-          ? 'bg-[#fffbf8] text-stone-900 selection:bg-rose-200 selection:text-rose-950'
-          : 'bg-[#180518] text-rose-100 selection:bg-rose-500 selection:text-white'
+          ? 'bg-slate-50 text-slate-900 selection:bg-rose-200 selection:text-rose-950'
+          : 'bg-[#090d16] text-slate-100 selection:bg-rose-600 selection:text-white'
       }`}
     >
       {/* Floating Falling Petals Canvas */}
@@ -637,16 +639,16 @@ export default function App() {
         <div
           className={`fixed top-20 right-4 z-50 max-w-sm p-4 rounded-2xl shadow-2xl border text-sm font-semibold flex items-center gap-2.5 animate-slide-in backdrop-blur-md ${
             theme === 'light'
-              ? 'bg-white/95 text-stone-900 border-rose-300 shadow-rose-950/10'
-              : 'bg-[#2d0f28]/95 text-white border-amber-400/50 shadow-black/60'
+              ? 'bg-white/95 text-slate-900 border-slate-200 shadow-xl'
+              : 'bg-slate-900/95 text-white border-amber-400/40 shadow-2xl'
           }`}
         >
           {toast.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           ) : toast.type === 'error' ? (
-            <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+            <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
           ) : (
-            <Info className="w-5 h-5 text-sky-500 shrink-0" />
+            <Info className="w-5 h-5 text-sky-400 shrink-0" />
           )}
           <span>{toast.message}</span>
         </div>
@@ -724,22 +726,43 @@ export default function App() {
             <div id="lucky-wheel" className="scroll-mt-24 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center max-w-6xl mx-auto">
               {/* Wheel Centerpiece (Left Column) */}
               <div className="lg:col-span-7 flex flex-col items-center justify-center">
-                <LuckyWheel
-                  slots={spinSlots || activeWheelSlots}
-                  isSpinning={isSpinning}
-                  onSpinEnd={handleSpinEnd}
-                  onSpinCenter={handleCenterSpinClick}
-                  targetSlotIndex={targetSlotIndex}
-                  spinOutcome={spinOutcome}
-                  disabled={event?.status !== 'ACTIVE'}
-                  disabledReason={
-                    event?.status === 'PAUSED'
-                      ? 'Ban tổ chức đang tạm dừng vòng quay. Vui lòng quay lại sau ít phút!'
-                      : event?.status === 'ENDED'
-                      ? 'Sự kiện đã chính thức khép lại. Cảm ơn các bạn học sinh đã tham gia!'
-                      : undefined
+                <ErrorBoundary
+                  fallback={
+                    <LuckyWheel
+                      slots={spinSlots || activeWheelSlots}
+                      isSpinning={isSpinning}
+                      onSpinEnd={handleSpinEnd}
+                      onSpinCenter={handleCenterSpinClick}
+                      targetSlotIndex={targetSlotIndex}
+                      spinOutcome={spinOutcome}
+                      disabled={event?.status !== 'ACTIVE'}
+                      disabledReason={
+                        event?.status === 'PAUSED'
+                          ? 'Ban tổ chức đang tạm dừng vòng quay. Vui lòng quay lại sau ít phút!'
+                          : event?.status === 'ENDED'
+                          ? 'Sự kiện đã chính thức khép lại. Cảm ơn các bạn học sinh đã tham gia!'
+                          : undefined
+                      }
+                    />
                   }
-                />
+                >
+                  <LuckyWheel3D
+                    slots={spinSlots || activeWheelSlots}
+                    isSpinning={isSpinning}
+                    onSpinEnd={handleSpinEnd}
+                    onSpinCenter={handleCenterSpinClick}
+                    targetSlotIndex={targetSlotIndex}
+                    spinOutcome={spinOutcome}
+                    disabled={event?.status !== 'ACTIVE'}
+                    disabledReason={
+                      event?.status === 'PAUSED'
+                        ? 'Ban tổ chức đang tạm dừng vòng quay. Vui lòng quay lại sau ít phút!'
+                        : event?.status === 'ENDED'
+                        ? 'Sự kiện đã chính thức khép lại. Cảm ơn các bạn học sinh đã tham gia!'
+                        : undefined
+                    }
+                  />
+                </ErrorBoundary>
               </div>
 
               {/* Ticket & Actions Form (Right Column) */}
@@ -778,20 +801,20 @@ export default function App() {
               id="prize-matrix-showcase"
               className={`scroll-mt-24 mt-12 rounded-3xl p-5 sm:p-7 max-w-5xl mx-auto shadow-2xl transition-colors duration-300 ${
                 theme === 'light'
-                  ? 'bg-white border border-rose-200/80 shadow-rose-950/5'
-                  : 'bg-[#2a1128]/85 border border-white/10 backdrop-blur-xl shadow-black/60'
+                  ? 'bg-white border border-slate-200 shadow-xl'
+                  : 'bg-slate-900/90 border border-slate-700/60 backdrop-blur-xl shadow-2xl'
               }`}
             >
               <div
                 className={`flex items-center justify-between mb-4 pb-3 border-b ${
-                  theme === 'light' ? 'border-rose-100' : 'border-white/10'
+                  theme === 'light' ? 'border-slate-100' : 'border-slate-800'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-amber-500" />
                   <h3
                     className={`font-black text-base sm:text-lg ${
-                      theme === 'light' ? 'text-stone-900' : 'text-white'
+                      theme === 'light' ? 'text-slate-900' : 'text-white'
                     }`}
                   >
                     Cơ Cấu Giải Thưởng
@@ -799,7 +822,7 @@ export default function App() {
                 </div>
                 <span
                   className={`text-xs ${
-                    theme === 'light' ? 'text-stone-500' : 'text-rose-200/70'
+                    theme === 'light' ? 'text-slate-500' : 'text-slate-400'
                   }`}
                 >
                   4 giải tiền mặt xen kẽ 4 ô lời chúc ý nghĩa

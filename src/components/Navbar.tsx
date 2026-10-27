@@ -98,7 +98,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header
       className={`text-white shadow-[0_10px_30px_rgba(0,0,0,0.35)] sticky top-0 z-40 border-b transition-colors duration-300 backdrop-blur-md ${
         isDark
-          ? 'bg-[#240822]/90 border-amber-400/25'
+          ? 'bg-[#0d1322]/95 border-slate-800/80 shadow-[0_10px_30px_rgba(0,0,0,0.5)]'
           : 'bg-gradient-to-r from-red-700 via-rose-700 to-amber-600 border-amber-400/40'
       }`}
     >
@@ -168,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Multi-level Dropdown Drawer / Panel */}
               {isNavMenuOpen && (
                 <div
-                  className={`absolute right-0 mt-2 w-72 sm:w-80 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] border p-3 z-50 animate-fade-in backdrop-blur-2xl ${
+                  className={`fixed inset-x-3 top-15 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 max-w-[calc(100vw-1.5rem)] max-h-[calc(100dvh-4.5rem)] overflow-y-auto rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.6)] border p-3 z-50 animate-fade-in backdrop-blur-2xl ${
                     isDark
                       ? 'bg-[#220722]/95 border-amber-400/30 text-white shadow-glow-gold'
                       : 'bg-white/95 border-rose-200 text-gray-900'
@@ -282,6 +282,35 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
 
+                    {/* Mobile Admin Link if not admin or switch admin */}
+                    <div className="border-t border-white/10 pt-2 block sm:hidden">
+                      {currentAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNavMenuOpen(false);
+                            onToggleAdminView();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-300 hover:bg-white/10 transition"
+                        >
+                          <Shield className="w-4 h-4 text-amber-400" />
+                          <span>{isAdminView ? 'Về Giao Diện Vòng Quay' : 'Mở Trang Quản Trị Viên'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNavMenuOpen(false);
+                            onOpenAuth('ADMIN');
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-stone-300 hover:bg-white/10 transition"
+                        >
+                          <Shield className="w-4 h-4 text-amber-300" />
+                          <span>Đăng Nhập Quản Trị Viên</span>
+                        </button>
+                      )}
+                    </div>
+
                     {/* Quick Setting Toggles inside Drawer */}
                     <div className="border-t border-white/10 pt-2 flex items-center justify-between px-2 text-xs">
                       <span className="text-gray-300 font-semibold">Tùy biến:</span>
@@ -319,33 +348,33 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Quick Tra cứu icon */}
+            {/* Quick Tra cứu icon (Hidden on mobile < md, accessible via Khám Phá dropdown) */}
             <button
               onClick={onOpenLookup}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition text-xs sm:text-sm font-semibold backdrop-blur-md border border-white/20 shadow-sm"
+              className="hidden md:inline-flex items-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition text-xs sm:text-sm font-semibold backdrop-blur-md border border-white/20 shadow-sm"
               title="Tra cứu mã nhận thưởng"
             >
               <Search className="w-4 h-4 text-amber-300" />
               <span className="navbar-lookup-label hidden lg:inline">Tra cứu</span>
             </button>
 
-            {/* Quick Confession Link */}
+            {/* Quick Confession Link (Hidden on mobile < md, accessible via Khám Phá dropdown) */}
             <button
               type="button"
               onClick={() => handleNavClick('CONFESSION')}
-              className="inline-flex items-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-400/30 active:scale-95 transition text-xs sm:text-sm font-bold backdrop-blur-md shadow-sm"
+              className="hidden md:inline-flex items-center space-x-1 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 text-pink-200 border border-pink-400/30 active:scale-95 transition text-xs sm:text-sm font-bold backdrop-blur-md shadow-sm"
               title="Trạm Lời Chúc & Confession Tri Ân 20/10"
             >
               <MessageSquareHeart className="w-4 h-4 text-pink-300" />
               <span className="hidden lg:inline">Confession</span>
             </button>
 
-            {/* Falling Petals Toggle Button */}
+            {/* Falling Petals Toggle Button (Hidden on mobile < sm, accessible via Khám Phá dropdown) */}
             {onTogglePetals && (
               <button
                 type="button"
                 onClick={onTogglePetals}
-                className={`p-1.5 sm:p-2 rounded-xl transition active:scale-95 border relative backdrop-blur-md shadow-sm ${
+                className={`hidden sm:inline-flex p-1.5 sm:p-2 rounded-xl transition active:scale-95 border relative backdrop-blur-md shadow-sm ${
                   petalsEnabled
                     ? 'bg-rose-500/30 text-rose-200 border-rose-300/40 hover:bg-rose-500/40 shadow-glow-rose'
                     : 'bg-white/10 text-white/50 border-white/10 hover:bg-white/20'
@@ -360,12 +389,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Light / Dark Mode Toggle */}
+            {/* Light / Dark Mode Toggle (Hidden on mobile < sm, accessible via Khám Phá dropdown) */}
             {onToggleTheme && (
               <button
                 type="button"
                 onClick={onToggleTheme}
-                className="p-1.5 sm:p-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition text-amber-300 border border-white/20 backdrop-blur-md shadow-sm"
+                className="hidden sm:inline-flex p-1.5 sm:p-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 transition text-amber-300 border border-white/20 backdrop-blur-md shadow-sm"
                 title={isDark ? 'Chuyển sang giao diện Sáng' : 'Chuyển sang giao diện Tối'}
                 aria-label="Chuyển đổi giao diện sáng tối"
               >
@@ -375,36 +404,36 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Student Account Status / Login */}
             {currentUser ? (
-              <div className="flex items-center bg-amber-500/25 border border-amber-300/40 rounded-xl p-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm shadow-sm backdrop-blur-md">
+              <div className="flex items-center bg-amber-500/25 border border-amber-300/40 rounded-xl p-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm shadow-sm backdrop-blur-md min-w-0 max-w-[130px] sm:max-w-[200px]">
                 <button
                   type="button"
                   onClick={onOpenUserProfile}
-                  className="flex items-center text-left mr-2 group hover:opacity-90 transition"
+                  className="flex items-center text-left mr-1.5 sm:mr-2 group hover:opacity-90 transition min-w-0"
                   title="Mở hồ sơ cá nhân, lịch sử quay & mã vé"
                 >
                   {currentUser.photoUrl ? (
                     <img
                       src={currentUser.photoUrl}
                       alt={currentUser.fullName || currentUser.username}
-                      className="w-7 h-7 rounded-full border border-amber-300 mr-2 object-cover shrink-0"
+                      className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-amber-300 mr-1.5 sm:mr-2 object-cover shrink-0"
                     />
                   ) : (
-                    <div className="w-7 h-7 rounded-full bg-amber-400 text-red-900 font-black flex items-center justify-center mr-2 text-xs shrink-0 shadow-sm">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-400 text-red-900 font-black flex items-center justify-center mr-1.5 sm:mr-2 text-xs shrink-0 shadow-sm">
                       {(currentUser.fullName || currentUser.username || 'U').charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div className="flex flex-col">
-                    <span className="font-bold text-amber-100 truncate max-w-[85px] sm:max-w-[130px] group-hover:underline">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-amber-100 truncate max-w-[60px] sm:max-w-[120px] group-hover:underline text-[11px] sm:text-xs">
                       {currentUser.fullName || currentUser.username}
                     </span>
-                    <span className="navbar-free-spins text-[10px] text-amber-200">
+                    <span className="navbar-free-spins text-[9px] sm:text-[10px] text-amber-200 truncate">
                       {currentUser.freeSpinsRemaining} lượt free
                     </span>
                   </div>
                 </button>
                 <button
                   onClick={onLogoutUser}
-                  className="p-1 hover:bg-white/20 rounded text-amber-200 hover:text-white"
+                  className="p-1 hover:bg-white/20 rounded text-amber-200 hover:text-white shrink-0"
                   title="Đăng xuất tài khoản"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -413,16 +442,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={() => onOpenAuth('STUDENT')}
-                className="inline-flex items-center space-x-1 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-red-950 font-black text-xs sm:text-sm shadow-glow-gold active:scale-95 transition"
+                className="inline-flex items-center space-x-1 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-red-950 font-black text-xs sm:text-sm shadow-glow-gold active:scale-95 transition shrink-0"
               >
-                <Gift className="w-4 h-4 text-red-700" />
-                <span className="navbar-reward-label">Nhận 3 lượt</span>
+                <Gift className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-700" />
+                <span className="navbar-reward-label text-[11px] sm:text-xs">Nhận 3 lượt</span>
               </button>
             )}
 
-            {/* Admin Switcher */}
+            {/* Admin Switcher (Hidden on mobile < sm, accessible via Khám Phá dropdown) */}
             {currentAdmin ? (
-              <div className="flex items-center space-x-1">
+              <div className="hidden sm:flex items-center space-x-1 shrink-0">
                 <button
                   onClick={onToggleAdminView}
                   className={`inline-flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold shadow-md transition ${
@@ -445,7 +474,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             ) : (
               <button
                 onClick={() => onOpenAuth('ADMIN')}
-                className="p-2 sm:px-3 sm:py-2 rounded-xl bg-black/20 hover:bg-black/35 text-xs sm:text-sm font-medium border border-white/10 active:scale-95 transition backdrop-blur-md"
+                className="hidden sm:inline-flex p-2 sm:px-3 sm:py-2 rounded-xl bg-black/20 hover:bg-black/35 text-xs sm:text-sm font-medium border border-white/10 active:scale-95 transition backdrop-blur-md shrink-0"
                 title="Đăng nhập Ban Tổ Chức"
               >
                 <Shield className="w-4 h-4 text-amber-300" />

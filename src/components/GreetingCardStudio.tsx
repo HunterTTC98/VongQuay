@@ -193,6 +193,7 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
   const [customWish, setCustomWish] = useState('');
   const [copied, setCopied] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'CONTENT' | 'STYLE' | 'FONT'>('CONTENT');
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -513,27 +514,28 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
   return (
     <section
       id="greeting-card-studio"
-      className="scroll-mt-20 my-10 bg-white rounded-3xl shadow-xl border border-rose-200/80 p-5 sm:p-8 max-w-6xl mx-auto"
+      className="scroll-mt-20 my-10 bg-white text-slate-900 rounded-3xl shadow-xl border border-slate-200/90 p-4 sm:p-7 max-w-6xl mx-auto transition-colors"
+      style={{ color: '#0f172a' }}
       aria-label="Studio tạo thiệp điện tử và lời chúc tiếng Việt"
     >
       {/* Studio Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rose-100 pb-5 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 mb-6">
         <div>
-          <div className="flex items-center gap-2 text-rose-600 font-extrabold text-xs uppercase tracking-wider mb-1">
-            <Sparkles className="w-4 h-4" />
-            <span>Giai Đoạn 2 · Bách Khoa Events</span>
+          <div className="flex items-center gap-2 text-rose-700 font-extrabold text-xs uppercase tracking-wider mb-1">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            <span>✦ BÁCH KHOA SẦM SƠN · THIỆP ĐIỆN TỬ TRI ÂN</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight font-serif">
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-serif">
             Tạo Thiệp Điện Tử & Lời Chúc Tiếng Việt
           </h2>
-          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
-            Thiết kế thiệp nghệ thuật theo từng dịp lễ của trường, tải ảnh PNG sắc nét hoặc sao chép lời chúc gửi Thầy Cô và bạn bè.
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Thiết kế thiệp nghệ thuật theo từng dịp lễ của trường, xem trước trực tiếp, tải ảnh PNG sắc nét hoặc sao chép lời chúc.
           </p>
         </div>
 
         {/* Occasion Selector Pill with Mobile Overflow Protection */}
         <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
-          <label htmlFor="card-occasion-select" className="text-xs font-bold text-gray-700 whitespace-nowrap shrink-0">
+          <label htmlFor="card-occasion-select" className="text-xs font-bold text-slate-700 whitespace-nowrap shrink-0">
             Dịp lễ:
           </label>
           <div className="relative w-full sm:w-auto min-w-0 max-w-full">
@@ -547,7 +549,7 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
               className="w-full sm:w-auto max-w-full sm:max-w-xs truncate px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm font-bold text-rose-950 focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-sm cursor-pointer"
             >
               {PRESET_OCCASIONS.map((occ) => (
-                <option key={occ.id} value={occ.id} className="text-gray-900 bg-white">
+                <option key={occ.id} value={occ.id} className="text-slate-900 bg-white">
                   {occ.shortLabel} · {occ.name}
                 </option>
               ))}
@@ -556,191 +558,15 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Customization Controls (5 cols) */}
-        <div className="lg:col-span-5 space-y-5">
-          {/* Recipient Selection Tabs */}
-          <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-              1. Người nhận thiệp:
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {RECIPIENTS.map((rec) => (
-                <button
-                  key={rec.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedRecipient(rec.id);
-                    if (rec.id === 'TEACHER') setRecipientName('Thầy Cô kính yêu');
-                    else if (rec.id === 'FRIEND') setRecipientName('Bạn thân mến');
-                    else if (rec.id === 'WOMEN') setRecipientName('Mẹ / Bạn nữ yêu quý');
-                    else if (rec.id === 'SCHOOL') setRecipientName('Mái trường Bách Khoa');
-                    else if (rec.id === 'CRUSH') setRecipientName('Người thương');
-                    setCustomWish('');
-                  }}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                    selectedRecipient === rec.id
-                      ? 'bg-rose-600 text-white shadow-sm'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                  }`}
-                >
-                  <span>{rec.icon}</span>
-                  <span>{rec.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Recipient and Sender Input Fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
-                Tên / Danh xưng nhận:
-              </label>
-              <input
-                type="text"
-                value={recipientName}
-                maxLength={45}
-                onChange={(e) => setRecipientName(e.target.value)}
-                placeholder="VD: Thầy Nguyễn Văn A..."
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
-                Ký tên người gửi:
-              </label>
-              <input
-                type="text"
-                value={senderName}
-                maxLength={45}
-                onChange={(e) => setSenderName(e.target.value)}
-                placeholder="VD: Tập thể Lớp K15..."
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-            </div>
-          </div>
-
-          {/* Theme Palette Chooser */}
-          <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
-              2. Phong cách mỹ thuật:
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {CARD_THEMES.map((theme) => (
-                <button
-                  key={theme.id}
-                  type="button"
-                  onClick={() => setSelectedThemeId(theme.id)}
-                  className={`p-2.5 rounded-xl text-left border transition relative overflow-hidden ${
-                    selectedThemeId === theme.id
-                      ? 'border-rose-600 ring-2 ring-rose-500/40 bg-rose-50/50'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
-                  <div
-                    className={`h-4 w-full rounded-md bg-gradient-to-r ${theme.bgGradient} mb-1.5`}
-                  />
-                  <span className="text-[11px] font-bold text-gray-900 block truncate">
-                    {theme.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Vietnamese Typography Font Chooser */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                3. Font chữ tiếng Việt chuẩn:
-              </label>
-              <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                ✓ 100% Không lỗi dấu
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {VIETNAMESE_FONTS.map((font) => (
-                <button
-                  key={font.id}
-                  type="button"
-                  onClick={() => setSelectedFontId(font.id)}
-                  className={`p-2.5 rounded-xl text-left border transition ${
-                    selectedFontId === font.id
-                      ? 'border-rose-600 ring-2 ring-rose-500/40 bg-rose-50/70 text-rose-950 font-bold'
-                      : 'border-gray-200 hover:border-gray-300 bg-white text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold">{font.name}</span>
-                    {selectedFontId === font.id && <span className="text-rose-600 text-xs">●</span>}
-                  </div>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">{font.desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Curated Wish List & Edit */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                4. Lời chúc tiếng Việt:
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  const others = currentWishList.filter((w) => w !== customWish);
-                  if (others.length > 0) {
-                    setCustomWish(others[Math.floor(Math.random() * others.length)]);
-                  }
-                }}
-                className="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-1"
-              >
-                <RefreshCw className="w-3 h-3" />
-                <span>Đổi lời chúc khác</span>
-              </button>
-            </div>
-
-            <textarea
-              rows={3}
-              value={customWish}
-              onChange={(e) => setCustomWish(e.target.value)}
-              placeholder="Nhập hoặc chỉnh sửa lời chúc gửi đến người nhận..."
-              className="w-full p-3 bg-gray-50 border border-gray-300 rounded-xl text-xs sm:text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 leading-relaxed"
-            />
-
-            {/* Quick Pick Pills */}
-            <div className="mt-2 space-y-1.5">
-              <span className="text-[10px] text-gray-400 uppercase font-bold block">
-                Gợi ý lời chúc hay:
-              </span>
-              {currentWishList.map((wish, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCustomWish(wish)}
-                  className={`w-full text-left p-2 rounded-lg text-xs leading-normal transition border ${
-                    customWish === wish
-                      ? 'bg-rose-50 border-rose-300 text-rose-950 font-semibold'
-                      : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-600'
-                  }`}
-                >
-                  {wish}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Live Card Canvas & Actions (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col items-center">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        {/* Live Card Canvas & Actions Column (Rendered FIRST on Mobile: order-1, and Right on Desktop: order-2) */}
+        <div className="w-full lg:col-span-7 flex flex-col items-center order-1 lg:order-2">
           <div className="w-full flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               Xem trước thiệp điện tử thực tế
             </span>
-            <span className="text-[11px] text-gray-400">Độ phân giải cao (1000 × 660px)</span>
+            <span className="text-[11px] text-slate-400 font-mono">1000 × 660px PNG</span>
           </div>
 
           {/* Canvas Wrapper with drop-shadow and golden border */}
@@ -749,13 +575,13 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
           </div>
 
           {/* Card Actions Button Bar */}
-          <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-5">
+          <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
             {/* Download PNG */}
             <button
               type="button"
               onClick={handleDownloadImage}
               disabled={isExporting}
-              className="py-3 px-4 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-red-500/20 transition flex items-center justify-center gap-2"
+              className="py-3 px-3 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 active:scale-95 text-white font-extrabold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>{isExporting ? 'Đang xuất thiệp...' : 'Tải Thiệp Về Máy (PNG)'}</span>
@@ -765,7 +591,7 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
             <button
               type="button"
               onClick={handleCopyWish}
-              className="py-3 px-4 rounded-xl bg-gray-900 hover:bg-black active:scale-95 text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2"
+              className="py-3 px-3 rounded-xl bg-slate-900 hover:bg-black active:scale-95 text-white font-bold text-xs sm:text-sm shadow-md transition flex items-center justify-center gap-2 cursor-pointer"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-amber-300" />}
               <span>{copied ? 'Đã sao chép!' : 'Sao Chép Lời Chúc'}</span>
@@ -775,16 +601,235 @@ export const GreetingCardStudio: React.FC<GreetingCardStudioProps> = ({
             <button
               type="button"
               onClick={handleShare}
-              className="py-3 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 active:scale-95 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2"
+              className="py-3 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 active:scale-95 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Share2 className="w-4 h-4 text-rose-600" />
               <span>Chia Sẻ Thiệp</span>
             </button>
           </div>
 
-          <p className="text-[11px] text-gray-400 text-center mt-3">
+          <p className="text-[11px] text-slate-500 text-center mt-2.5">
             Mẹo: Bạn có thể lưu thiệp gửi qua Zalo, Messenger, Facebook hoặc in ra làm quà tặng thầy cô và bạn bè.
           </p>
+        </div>
+
+        {/* Customization Controls Column (order-2 on Mobile, Left on Desktop: order-1) */}
+        <div className="w-full lg:col-span-5 space-y-4 order-2 lg:order-1 pt-2 lg:pt-0">
+          {/* Mobile Tab Switcher to keep controls super compact under the live preview */}
+          <div className="lg:hidden flex rounded-xl bg-slate-100 p-1 border border-slate-200 text-xs font-bold gap-1 mb-2">
+            <button
+              type="button"
+              onClick={() => setMobileTab('CONTENT')}
+              className={`flex-1 py-2 px-1 rounded-lg transition text-center truncate cursor-pointer ${
+                mobileTab === 'CONTENT'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              ✍️ Lời Chúc & Tên
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('STYLE')}
+              className={`flex-1 py-2 px-1 rounded-lg transition text-center truncate cursor-pointer ${
+                mobileTab === 'STYLE'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              🎨 Phong Cách ({CARD_THEMES.findIndex((t) => t.id === selectedThemeId) + 1}/5)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('FONT')}
+              className={`flex-1 py-2 px-1 rounded-lg transition text-center truncate cursor-pointer ${
+                mobileTab === 'FONT'
+                  ? 'bg-rose-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              🔤 Font Chữ
+            </button>
+          </div>
+
+          {/* Section 1: Recipient, Names & Custom Wish */}
+          <div className={mobileTab === 'CONTENT' ? 'space-y-4' : 'hidden lg:block lg:space-y-4'}>
+            {/* Recipient Selection Tabs */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                1. Người nhận thiệp:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {RECIPIENTS.map((rec) => (
+                  <button
+                    key={rec.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRecipient(rec.id);
+                      if (rec.id === 'TEACHER') setRecipientName('Thầy Cô kính yêu');
+                      else if (rec.id === 'FRIEND') setRecipientName('Bạn thân mến');
+                      else if (rec.id === 'WOMEN') setRecipientName('Mẹ / Bạn nữ yêu quý');
+                      else if (rec.id === 'SCHOOL') setRecipientName('Mái trường Bách Khoa');
+                      else if (rec.id === 'CRUSH') setRecipientName('Người thương');
+                      setCustomWish('');
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      selectedRecipient === rec.id
+                        ? 'bg-rose-600 text-white shadow-sm'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    <span>{rec.icon}</span>
+                    <span>{rec.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Recipient and Sender Input Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tên / Danh xưng nhận:
+                </label>
+                <input
+                  type="text"
+                  value={recipientName}
+                  maxLength={45}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                  placeholder="VD: Thầy Nguyễn Văn A..."
+                  style={{ color: '#0f172a', backgroundColor: '#ffffff' }}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 shadow-sm transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Ký tên người gửi:
+                </label>
+                <input
+                  type="text"
+                  value={senderName}
+                  maxLength={45}
+                  onChange={(e) => setSenderName(e.target.value)}
+                  placeholder="VD: Tập thể Lớp K15..."
+                  style={{ color: '#0f172a', backgroundColor: '#ffffff' }}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 shadow-sm transition"
+                />
+              </div>
+            </div>
+
+            {/* Curated Wish List & Edit */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  2. Lời chúc tiếng Việt:
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const others = currentWishList.filter((w) => w !== customWish);
+                    if (others.length > 0) {
+                      setCustomWish(others[Math.floor(Math.random() * others.length)]);
+                    }
+                  }}
+                  className="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Đổi lời chúc ngẫu nhiên</span>
+                </button>
+              </div>
+
+              <textarea
+                rows={3}
+                value={customWish}
+                onChange={(e) => setCustomWish(e.target.value)}
+                placeholder="Nhập hoặc chỉnh sửa lời chúc gửi đến người nhận..."
+                style={{ color: '#0f172a', backgroundColor: '#ffffff' }}
+                className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 leading-relaxed shadow-sm transition"
+              />
+
+              {/* Quick Pick Pills */}
+              <div className="mt-2 space-y-1.5">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">
+                  Gợi ý lời chúc hay:
+                </span>
+                {currentWishList.slice(0, 3).map((wish, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCustomWish(wish)}
+                    className={`w-full text-left p-2 rounded-lg text-xs leading-normal transition border cursor-pointer ${
+                      customWish === wish
+                        ? 'bg-rose-50 border-rose-300 text-rose-950 font-semibold shadow-xs'
+                        : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {wish}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Theme Palette Chooser */}
+          <div className={mobileTab === 'STYLE' ? 'block' : 'hidden lg:block'}>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+              3. Phong cách mỹ thuật:
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {CARD_THEMES.map((theme) => (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => setSelectedThemeId(theme.id)}
+                  className={`p-2.5 rounded-xl text-left border transition relative overflow-hidden cursor-pointer ${
+                    selectedThemeId === theme.id
+                      ? 'border-rose-600 ring-2 ring-rose-500/40 bg-rose-50/70 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 bg-white'
+                  }`}
+                >
+                  <div
+                    className={`h-4 w-full rounded-md bg-gradient-to-r ${theme.bgGradient} mb-1.5 shadow-xs`}
+                  />
+                  <span className="text-[11px] font-bold text-slate-900 block truncate">
+                    {theme.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 3: Vietnamese Typography Font Chooser */}
+          <div className={mobileTab === 'FONT' ? 'block' : 'hidden lg:block'}>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                4. Font chữ tiếng Việt chuẩn:
+              </label>
+              <span className="text-[11px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                ✓ 100% Không lỗi dấu
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {VIETNAMESE_FONTS.map((font) => (
+                <button
+                  key={font.id}
+                  type="button"
+                  onClick={() => setSelectedFontId(font.id)}
+                  className={`p-2.5 rounded-xl text-left border transition cursor-pointer ${
+                    selectedFontId === font.id
+                      ? 'border-rose-600 ring-2 ring-rose-500/40 bg-rose-50/70 text-rose-950 font-bold shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold">{font.name}</span>
+                    {selectedFontId === font.id && <span className="text-rose-600 text-xs">●</span>}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">{font.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>

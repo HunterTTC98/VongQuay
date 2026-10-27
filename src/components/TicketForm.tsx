@@ -60,24 +60,24 @@ export const TicketForm: React.FC<TicketFormProps> = ({
   return (
     <div className="w-full max-w-lg mx-auto space-y-4">
       {/* Main Participation Card matching reference design */}
-      <div className="ticket-main-card bg-[#2a1128]/85 backdrop-blur-xl rounded-3xl p-6 sm:p-7 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.6)] text-white transition-colors">
+      <div className="ticket-main-card bg-slate-900/90 backdrop-blur-xl rounded-3xl p-6 sm:p-7 border border-slate-700/60 shadow-[0_20px_50px_rgba(0,0,0,0.6)] text-white transition-colors">
         {/* Card Header */}
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-fuchsia-900/40 shrink-0">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center shadow-lg shadow-rose-950/40 shrink-0">
             <TicketIcon className="w-5 h-5" />
           </div>
           <div>
             <h2 className="ticket-card-title text-base sm:text-lg font-black tracking-tight text-white font-['Montserrat',sans-serif]">
               Tham Gia Bằng Mã Vé / Tài Khoản
             </h2>
-            <p className="ticket-card-subtitle text-xs text-rose-200/80">
+            <p className="ticket-card-subtitle text-xs text-slate-400">
               Đăng nhập hoặc nhập mã vé dự thưởng để quay
             </p>
           </div>
         </div>
 
         {/* Warning / Callout Banner matching reference image */}
-        <div className="ticket-callout-banner mb-5 p-3.5 rounded-2xl bg-gradient-to-r from-red-950/80 to-pink-950/80 border border-rose-500/30 text-xs text-rose-100 flex items-start gap-2.5 transition-colors">
+        <div className="ticket-callout-banner mb-5 p-3.5 rounded-2xl bg-slate-950/60 border border-slate-700/60 text-xs text-slate-300 flex items-start gap-2.5 transition-colors">
           <span className="text-amber-400 font-bold shrink-0">ⓘ</span>
           <div className="flex-1 leading-relaxed">
             {currentUser ? (
@@ -86,7 +86,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({
               </span>
             ) : (
               <span>
-                Vui lòng <strong className="font-bold">Đăng nhập</strong> để nhận 3 lượt quay miễn phí hoặc <strong className="font-bold">Nhập mã vé dự thưởng</strong> từ nhà trường để quay!
+                Vui lòng <strong className="font-bold text-white">Đăng nhập</strong> để nhận 3 lượt quay miễn phí hoặc <strong className="font-bold text-white">Nhập mã vé dự thưởng</strong> từ nhà trường để quay!
               </span>
             )}
           </div>
@@ -94,7 +94,7 @@ export const TicketForm: React.FC<TicketFormProps> = ({
             <button
               type="button"
               onClick={onOpenAuth}
-              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-red-950 font-black text-[11px] rounded-lg shrink-0 transition"
+              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[11px] rounded-lg shrink-0 transition"
             >
               Đăng nhập
             </button>
@@ -103,8 +103,8 @@ export const TicketForm: React.FC<TicketFormProps> = ({
 
         {/* Ticket Input Section */}
         <div className="space-y-2 mb-5">
-          <label className="ticket-input-label block text-xs font-semibold text-rose-200">
-            Mã vé dự thưởng <span className="ticket-input-hint text-rose-400/80 font-normal">(Do ban tổ chức cấp riêng)</span>
+          <label className="ticket-input-label block text-xs font-semibold text-slate-300">
+            Mã vé dự thưởng <span className="ticket-input-hint text-slate-400 font-normal">(Do ban tổ chức cấp riêng)</span>
           </label>
 
           <div className="flex gap-2">
@@ -114,16 +114,16 @@ export const TicketForm: React.FC<TicketFormProps> = ({
               onChange={handleInputChange}
               placeholder="Nhập mã vé BKS-2010-XXX..."
               disabled={isSpinning}
-              className="ticket-input-field flex-1 px-4 py-3 bg-[#190919] border border-white/15 rounded-2xl text-xs sm:text-sm font-mono font-bold tracking-wider uppercase text-amber-100 placeholder:text-stone-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:border-transparent transition"
+              className="ticket-input-field flex-1 px-4 py-3 bg-slate-950/70 border border-slate-700/60 rounded-2xl text-xs sm:text-sm font-mono font-bold tracking-wider uppercase text-amber-300 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition"
             />
 
             <button
               type="button"
               onClick={onVerifyTicket}
               disabled={!ticketCode.trim() || isVerifying || isSpinning}
-              className="ticket-verify-btn px-4 py-3 bg-[#4a1d4b] hover:bg-[#5e225f] text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition disabled:opacity-50 active:scale-95 flex items-center gap-1.5 shrink-0"
+              className="ticket-verify-btn px-4 py-3 bg-rose-700 hover:bg-rose-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition disabled:opacity-50 active:scale-95 flex items-center gap-1.5 shrink-0"
             >
-              <Search className="w-4 h-4 text-rose-300" />
+              <Search className="w-4 h-4 text-white" />
               <span>{isVerifying ? 'Kiểm...' : 'Kiểm tra'}</span>
             </button>
           </div>
@@ -208,12 +208,12 @@ export const TicketForm: React.FC<TicketFormProps> = ({
       </div>
 
       {/* Transparency Info Box matching reference image */}
-      <div className="ticket-transparency-box bg-[#240a25]/80 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-xs text-rose-200/80 leading-relaxed shadow-lg transition-colors">
+      <div className="ticket-transparency-box bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 border border-slate-700/60 text-xs text-slate-300 leading-relaxed shadow-lg transition-colors">
         <div className="flex items-center gap-2 font-bold text-amber-300 mb-1">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
           <span>Quy trình trao thưởng minh bạch MoMo & Cloud Firestore</span>
         </div>
-        <p className="text-[11px] text-stone-300">
+        <p className="text-[11px] text-slate-400">
           Mỗi lượt quay dừng chuẩn xác tại vị trí kim chỉ. Người trúng giải MoMo nhận mã dự thưởng độc bản, nộp thông tin nhận thưởng và được bộ phận quản trị nhà trường đối soát, chuyển khoản MoMo minh bạch.
         </p>
       </div>
