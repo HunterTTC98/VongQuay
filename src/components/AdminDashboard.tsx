@@ -1963,6 +1963,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 >
                   <option value="ALL">Tất cả trạng thái</option>
                   <option value="PENDING_VERIFICATION">Chờ xác minh</option>
+                  <option value="VERIFIED">Đã xác minh</option>
                   <option value="PENDING_PAYOUT">Chờ thanh toán</option>
                   <option value="PAID">Đã thanh toán (Thành công)</option>
                   <option value="REJECTED">Bị từ chối</option>
@@ -2008,6 +2009,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : c.status === 'REJECTED'
                                   ? 'bg-rose-100 text-rose-800'
+                                  : c.status === 'VERIFIED'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : c.status === 'PENDING_PAYOUT'
+                                  ? 'bg-indigo-100 text-indigo-800'
                                   : 'bg-amber-100 text-amber-800'
                               }`}
                             >
@@ -2489,6 +2494,64 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             <div className="space-y-3">
+              {/* Quick Actions for Admin */}
+              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-600 block">Thao tác nhanh 1 chạm:</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingClaimStatus('VERIFIED')}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-center ${
+                      editingClaimStatus === 'VERIFIED'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50'
+                    }`}
+                  >
+                    ✓ Xác minh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingClaimStatus('PENDING_PAYOUT')}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-center ${
+                      editingClaimStatus === 'PENDING_PAYOUT'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                        : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+                    }`}
+                  >
+                    ✓ Duyệt chi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingClaimStatus('PAID');
+                      if (!transactionRef) {
+                        const dateCode = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                        const codeTail = selectedClaim?.claim_code.replace('CLM-', '') || 'MOMO';
+                        setTransactionRef(`MOMO-${dateCode}-${codeTail}`);
+                      }
+                    }}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-center ${
+                      editingClaimStatus === 'PAID'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50'
+                    }`}
+                  >
+                    ⚡ Đã chi MoMo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingClaimStatus('REJECTED')}
+                    className={`px-2 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer text-center ${
+                      editingClaimStatus === 'REJECTED'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                        : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                    }`}
+                  >
+                    ✕ Từ chối
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Cập nhật trạng thái:</label>
                 <select
@@ -2497,6 +2560,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-800 cursor-pointer"
                 >
                   <option value="PENDING_VERIFICATION">Chờ xác minh</option>
+                  <option value="VERIFIED">Đã xác minh thông tin</option>
                   <option value="PENDING_PAYOUT">Đã duyệt · Chờ chi tiền</option>
                   <option value="PAID">Đã thanh toán (Thành công)</option>
                   <option value="REJECTED">Từ chối trao thưởng</option>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WheelSlot } from '../types/index.ts';
 import { soundManager } from '../utils/audio.ts';
-import confetti from 'canvas-confetti';
+import { triggerCashFireworks, isCashPrizeOutcome } from '../utils/confettiFireworks.ts';
 import { RotateCw, LoaderCircle, AlertCircle } from 'lucide-react';
 
 interface LuckyWheelProps {
@@ -78,13 +78,11 @@ export const LuckyWheel: React.FC<LuckyWheelProps> = ({
         setRotation(finalRot);
         soundManager.playSpinStop();
 
-        if (spinOutcome?.isWin && spinOutcome.amount > 0) {
+        if (isCashPrizeOutcome(spinOutcome)) {
           soundManager.playWin();
-          confetti({
-            particleCount: 120,
-            spread: 80,
-            origin: { y: 0.6 },
-            colors: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#ec4899', '#fde047'],
+          triggerCashFireworks({
+            amount: spinOutcome!.amount,
+            isGrandPrize: spinOutcome!.amount >= 100000,
           });
         }
 

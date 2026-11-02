@@ -3,10 +3,10 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { WheelSlot } from '../../types/index.ts';
 import { soundManager } from '../../utils/audio.ts';
-import confetti from 'canvas-confetti';
+import { triggerCashFireworks, isCashPrizeOutcome } from '../../utils/confettiFireworks.ts';
 import { detectDeviceGraphicTier, DeviceGraphicTier } from './deviceTier.ts';
 import { LuckyWheel } from '../LuckyWheel.tsx';
-import { Sparkles, Layers, Volume2, VolumeX, Eye, Zap, AlertCircle } from 'lucide-react';
+import { Sparkles, Layers, Volume2, VolumeX, Eye, Zap, AlertCircle, Trophy, Flame } from 'lucide-react';
 
 interface LuckyWheel3DProps {
   slots: WheelSlot[];
@@ -168,6 +168,14 @@ export const LuckyWheel3D: React.FC<LuckyWheel3DProps> = ({
   });
 
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [cashCelebration, setCashCelebration] = useState<{
+    amount: number;
+    slotName: string;
+    isGrandPrize: boolean;
+  } | null>(null);
+  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fireworksCleanupRef = useRef<(() => void) | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -515,12 +523,25 @@ export const LuckyWheel3D: React.FC<LuckyWheel3DProps> = ({
     };
   }, [renderMode, slots]);
 
+  // Cleanup fireworks and timers on component unmount
+  useEffect(() => {
+    return () => {
+      fireworksCleanupRef.current?.();
+      if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+    };
+  }, []);
+
   // Handle Spin Trigger
   useEffect(() => {
     if (!isSpinning || targetSlotIndex === null) {
       isSpinningRef.current = false;
       return;
     }
+
+    // Reset previous celebration when new spin starts
+    fireworksCleanupRef.current?.();
+    if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+    setCashCelebration(null);
 
     isSpinningRef.current = true;
     const numSlices = slots.length || 8;
@@ -567,15 +588,29 @@ export const LuckyWheel3D: React.FC<LuckyWheel3DProps> = ({
         isSpinningRef.current = false;
         if (soundEnabled) soundManager.playSpinStop();
 
-        // Celebration on win
-        if (spinOutcome?.isWin && spinOutcome.amount > 0) {
+        // Exhilarating celebratory fireworks for cash winners
+        if (isCashPrizeOutcome(spinOutcome)) {
           if (soundEnabled) soundManager.playWin();
-          confetti({
-            particleCount: 120,
-            spread: 80,
-            origin: { y: 0.6 },
-            colors: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#ec4899', '#fde047'],
+          const amount = spinOutcome!.amount;
+          const isGrand = amount >= 100000;
+
+          setCashCelebration({
+            amount,
+            slotName: spinOutcome!.slotName,
+            isGrandPrize: isGrand,
           });
+
+          // Trigger multi-stage fireworks and confetti celebration
+          fireworksCleanupRef.current?.();
+          fireworksCleanupRef.current = triggerCashFireworks({
+            amount,
+            isGrandPrize: isGrand,
+          });
+
+          if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current);
+          celebrationTimerRef.current = setTimeout(() => {
+            setCashCelebration(null);
+          }, isGrand ? 6000 : 4500);
         }
 
         onSpinEnd();
@@ -583,7 +618,7 @@ export const LuckyWheel3D: React.FC<LuckyWheel3DProps> = ({
     };
 
     requestAnimationFrame(animateSpin);
-  }, [isSpinning, targetSlotIndex, slots.length, soundEnabled]);
+  }, [isSpinning, targetSlotIndex, slots.length, soundEnabled, spinOutcome, onSpinEnd]);
 
   // If 2D mode is active, render 2D wheel after all hooks have executed unconditionally
   if (renderMode === '2D') {
@@ -621,10 +656,38 @@ export const LuckyWheel3D: React.FC<LuckyWheel3DProps> = ({
     <div className="relative flex flex-col items-center justify-center select-none w-full max-w-full">
       {/* 3D Wheel Viewport Container */}
       <div className="relative w-[min(360px,calc(100vw-2rem))] aspect-square sm:w-[420px] md:w-[450px] flex items-center justify-center">
-        {/* Ambient Glow */}
+        {/* Cash Prize Fireworks Celebration Banner */}
+        {cashCelebration && (
+          <div className="absolute -top-14 sm:-top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none w-max max-w-[92vw] animate-bounce">
+            <div
+              className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-2.5 text-center transition-all ${
+                cashCelebration.isGrandPrize
+                  ? 'bg-gradient-to-r from-amber-500 via-rose-600 to-amber-500 text-white border-yellow-300 shadow-[0_0_35px_rgba(245,158,11,0.9)]'
+                  : 'bg-gradient-to-r from-emerald-600 via-amber-600 to-rose-600 text-white border-amber-300 shadow-[0_0_30px_rgba(245,158,11,0.75)]'
+              }`}
+            >
+              <Sparkles className="w-5 h-5 text-yellow-200 animate-spin shrink-0" />
+              <div className="flex flex-col items-center leading-tight">
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-yellow-200 flex items-center gap-1">
+                  🎆 {cashCelebration.isGrandPrize ? 'ĐẠI TIỆC PHÁO HOA · GIẢI ĐẶC BIỆT' : 'PHÁO HOA CHÚC MỪNG'} 🎆
+                </span>
+                <span className="text-sm sm:text-base font-black tracking-tight drop-shadow-md">
+                  Trúng {cashCelebration.amount.toLocaleString('vi-VN')}đ {cashCelebration.isGrandPrize ? '👑' : '🎉'}
+                </span>
+              </div>
+              <Trophy className="w-5 h-5 text-yellow-300 animate-pulse shrink-0" />
+            </div>
+          </div>
+        )}
+
+        {/* Ambient Glow & Cash Celebration Flash */}
         <div
-          className={`absolute -inset-6 rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.35),rgba(225,29,72,0.18)_50%,transparent_75%)] blur-2xl pointer-events-none transition-opacity duration-500 ${
-            isSpinning ? 'opacity-100 animate-pulse' : 'opacity-70'
+          className={`absolute -inset-8 rounded-full pointer-events-none transition-all duration-700 blur-2xl ${
+            cashCelebration
+              ? 'bg-[radial-gradient(circle,rgba(251,191,36,0.65),rgba(239,68,68,0.45)_50%,transparent_75%)] opacity-100 animate-pulse scale-110'
+              : isSpinning
+              ? 'bg-[radial-gradient(circle,rgba(245,158,11,0.4),rgba(225,29,72,0.2)_50%,transparent_75%)] opacity-100 animate-pulse'
+              : 'bg-[radial-gradient(circle,rgba(245,158,11,0.25),rgba(225,29,72,0.12)_50%,transparent_75%)] opacity-70'
           }`}
           aria-hidden="true"
         />

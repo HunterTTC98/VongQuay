@@ -68,14 +68,21 @@ test('Claim State Machine transitions validate correctly', () => {
   // Valid transitions
   assert.equal(isValidClaimTransition('UNSUBMITTED', 'PENDING_VERIFICATION'), true);
   assert.equal(isValidClaimTransition('PENDING_VERIFICATION', 'VERIFIED'), true);
+  assert.equal(isValidClaimTransition('PENDING_VERIFICATION', 'PENDING_PAYOUT'), true); // Option 1: Direct payout approval
+  assert.equal(isValidClaimTransition('PENDING_VERIFICATION', 'PAID'), true); // Option 1: Direct instant MoMo payout
   assert.equal(isValidClaimTransition('VERIFIED', 'PENDING_PAYOUT'), true);
+  assert.equal(isValidClaimTransition('VERIFIED', 'PAID'), true);
   assert.equal(isValidClaimTransition('PENDING_PAYOUT', 'PAID'), true);
   assert.equal(isValidClaimTransition('PENDING_VERIFICATION', 'REJECTED'), true);
   assert.equal(isValidClaimTransition('REJECTED', 'PENDING_VERIFICATION'), true);
+  assert.equal(isValidClaimTransition('REJECTED', 'VERIFIED'), true);
+  assert.equal(isValidClaimTransition('REJECTED', 'PENDING_PAYOUT'), true);
 
   // Invalid transitions
   assert.equal(isValidClaimTransition('UNSUBMITTED', 'PAID'), false);
+  assert.equal(isValidClaimTransition('UNSUBMITTED', 'PENDING_PAYOUT'), false);
   assert.equal(isValidClaimTransition('PAID', 'PENDING_VERIFICATION'), false); // Cannot alter paid claim!
+  assert.equal(isValidClaimTransition('PAID', 'PENDING_PAYOUT'), false);
   assert.equal(isValidClaimTransition('PAID', 'REJECTED'), false);
 });
 

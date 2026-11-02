@@ -114,16 +114,13 @@ export type ClaimStatus =
   | 'PAID'
   | 'REJECTED';
 
-/**
- * Strict Claim State Machine transitions
- */
 export const ALLOWED_CLAIM_TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   UNSUBMITTED: ['PENDING_VERIFICATION', 'REJECTED'],
-  PENDING_VERIFICATION: ['VERIFIED', 'REJECTED'],
-  VERIFIED: ['PENDING_PAYOUT', 'REJECTED'],
+  PENDING_VERIFICATION: ['VERIFIED', 'PENDING_PAYOUT', 'PAID', 'REJECTED'],
+  VERIFIED: ['PENDING_PAYOUT', 'PAID', 'REJECTED'],
   PENDING_PAYOUT: ['PAID', 'REJECTED'],
   PAID: [], // Terminal state: cannot change once paid
-  REJECTED: ['PENDING_VERIFICATION'], // Can only re-evaluate
+  REJECTED: ['PENDING_VERIFICATION', 'VERIFIED', 'PENDING_PAYOUT'], // Re-evaluating or re-opening
 };
 
 export function isValidClaimTransition(from: ClaimStatus, to: ClaimStatus): boolean {
